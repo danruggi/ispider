@@ -1,6 +1,7 @@
 from ispider_core import settings
 from ispider_core.utils.logger import LoggerFactory
 from ispider_core.utils import efiles
+from ispider_core.utils import resume
 
 
 from queue import LifoQueue
