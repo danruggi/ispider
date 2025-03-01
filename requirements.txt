@@ -1,0 +1,16 @@
+aiohttp
+beautifulsoup4
+certifi
+cryptography
+httpx
+idna
+lxml
+mysql-connector
+nltk
+nslookup
+pandas
+pydantic
+Requests
+tldextract
+Unidecode
+urllib3
