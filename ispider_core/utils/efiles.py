@@ -19,8 +19,8 @@ def load_domains_exclusion_list(conf, protocol=True):
 
     try:
         # Use pathlib to ensure compatibility
-        file_path = Path.home() / ".ispider" / "data" / "exclude_domains.csv"
-
+        file_path = Path.home() / ".ispider" / "sources" / "exclude_domains.csv"
+        logger.info(f"Loading Exclusion Domains: {file_path}")
         with file_path.open("r", encoding="utf-8") as f:
             reader = csv.DictReader(f, delimiter=',', quotechar='"')
 

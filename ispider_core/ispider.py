@@ -1,6 +1,7 @@
 from ispider_core.orchestrator import Orchestrator
 import multiprocessing
 import os
+import requests
 from pathlib import Path
 
 from ispider_core import settings
@@ -17,7 +18,8 @@ class ISpider:
         self.conf = self._setup_conf(domains, kwargs)
         self.manager = multiprocessing.Manager()
         self.shared_counter = self.manager.Value('i', 0)
-        self._ensure_user_folder()
+        self.user_folder, self.sources_folder = self._ensure_user_folder()
+        self._download_csv_if_needed()
 
     def _setup_conf(self, domains, kwargs):
         """
@@ -33,17 +35,17 @@ class ISpider:
 
     def _ensure_user_folder(self):
         """
-        Check if ~/.ispider exists. If not, ask the user for permission to create it.
+        Ensure ~/.ispider exists. If not, ask for permission to create it.
         """
         user_folder = Path.home() / ".ispider"
         data_folder = user_folder / "data"
         sources_folder = user_folder / "sources"
 
         if not user_folder.exists():
-            response = input(f"""The directory {user_folder} is required. \nAll the data will be saved there. Do you want to create it? [y/N]: """).strip().lower()
+            response = input(f"""The directory {user_folder} is required. \nAll data will be saved there. Do you want to create it? [y/N]: """).strip().lower()
             if response != 'y':
                 print("Aborting setup. The program cannot continue without this folder.")
-                exit(1)  # Stop execution if user denies permission
+                exit(1)
 
             try:
                 data_folder.mkdir(parents=True, exist_ok=True)
@@ -52,6 +54,28 @@ class ISpider:
             except PermissionError:
                 print(f"❌ Error: No permission to create {user_folder}.")
                 exit(1)
+
+        return user_folder, sources_folder
+
+    def _download_csv_if_needed(self):
+        """
+        Check if the CSV file exists, if not, download it.
+        """
+        csv_url = "https://raw.githubusercontent.com/danruggi/ispider/dev/static/exclude_domains.csv"
+        csv_path = self.sources_folder / "exclude_domains.csv"
+
+        if not csv_path.exists():
+            print(f"🔍 CSV file not found. Downloading from {csv_url}...")
+            try:
+                response = requests.get(csv_url, timeout=10)
+                response.raise_for_status()  # Raise an error for HTTP issues
+
+                with open(csv_path, "wb") as f:
+                    f.write(response.content)
+
+                print(f"✅ Exclusion domains CSV file saved to {csv_path}")
+            except requests.RequestException as e:
+                print(f"❌ Failed to download Exclusion domains CSV: {e}")
 
     def run(self):
         """
