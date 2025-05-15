@@ -1,0 +1,3 @@
+exclude *.DS_Store
+recursive-exclude __pycache__ *
+recursive-exclude *.egg-info *

@@ -1,0 +1,1 @@
+from .ispider import ISpider
