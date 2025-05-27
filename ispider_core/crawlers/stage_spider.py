@@ -127,7 +127,7 @@ def call_and_manage_resps(
 
         del(resp['content'])
         
-        dump_fname = os.path.join(conf['path_jsons'], f"crawl_conn_meta.{mod}.json")
+        dump_fname = os.path.join(conf['path_jsons'], f"spider_conn_meta.{mod}.json")
         with open(dump_fname, 'a+') as f:
             json.dump(resp, f)
             f.write('\n')
@@ -135,7 +135,7 @@ def call_and_manage_resps(
         ## 50MB    
         if os.path.getsize(dump_fname) > settings.MAX_CRAWL_DUMP_SIZE:
             current_time = datetime.now().strftime("%Y%m%d%H%M%S")
-            back_dump_fname = os.path.join(conf['path_jsons'], f"crawl_conn_meta.{mod}.{current_time}.json")
+            back_dump_fname = os.path.join(conf['path_jsons'], f"spider_conn_meta.{mod}.{current_time}.json")
             os.replace(dump_fname, back_dump_fname)
 
 

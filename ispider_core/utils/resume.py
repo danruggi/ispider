@@ -50,7 +50,7 @@ class ResumeState:
         path_dumps = Path(self.conf['path_dumps'])
 
         for file in path_jsons.iterdir():
-            if not re.match(r'crawl_conn_meta.*\.json', file.name):
+            if not re.match(r'*_conn_meta.*\.json', file.name):
                 continue
 
             with file.open() as f:
