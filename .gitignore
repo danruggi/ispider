@@ -66,3 +66,4 @@ logs/
 .mypy_cache/
 .coverage.*
 .cache
+.git_local_repo_credentials
