@@ -71,14 +71,18 @@ if __name__ == '__main__':
 
 # TO KNOW
 At first execution, 
-- It creates the folder ~/.ispider
-- It downloads the file
+- It creates the folder settings.USER_FOLDER
+- It downloads the file in settings.USER_FOLDER/sources/
 
 https://raw.githubusercontent.com/danruggi/ispider/dev/static/exclude_domains.csv
 
 that's a list of almost-infinite domains that would retain the script forever
 (or other domains too that were not needed in my project)
 You can update the file in ~/.ispider/sources
+
+- It creates settings.USER_FOLDER/data/ with dumps/ and jsons/
+- dumps are the downloaded websites
+- jsons are the connection results for every request
 
 
 # SETTINGS
