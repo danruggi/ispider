@@ -1,5 +1,7 @@
 from ispider_core import ISpider
 
-doms = ["another.com", 'hostelworld.com', 'test.com']
-ISpider(domains=doms, stage="stage1").run()
-ISpider(domains=doms, stage="stage2").run()
+if __name__ == '__main__':
+	doms = ["https://www.hostelworld.com/"]
+	ISpider(domains=doms, stage="crawl").run()
+	ISpider(domains=doms, stage="spider").run()
+	quit()

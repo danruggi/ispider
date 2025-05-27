@@ -6,8 +6,8 @@ TIME_DELAY_RETRY = 0
 QUEUE_MAX_SIZE = 100000
 
 ## Number of concurrent connection on the same process during crawling
-ASYNC_BLOCK_SIZE = 2
-POOLS = 2
+ASYNC_BLOCK_SIZE = 4
+POOLS = 4
 TIMEOUT = 5
 
 # Number of cores to be used
@@ -33,6 +33,13 @@ EXCLUDED_EXTENSIONS = [
     "zip", "rar"
 ]
 
+EXCLUDED_EXPRESSIONS_URL = [
+    r'test',
+]
+
 USER_FOLDER = "~/.ispider/"
 
 LOG_LEVEL = 'DEBUG'
+
+CRAWL_METHODS = ['robots', 'sitemaps']
+ENGINE = ['httpx', 'curl']

@@ -8,7 +8,7 @@ from ispider_core.crawlers import cls_seen_filter
 from ispider_core.crawlers import thread_queue_in
 from ispider_core.crawlers import thread_stats
 from ispider_core.crawlers import thread_save_finished
-from ispider_core.crawlers import stage1_crawl, stage2_spider
+from ispider_core.crawlers import stage_crawl, stage_spider
 
 from queue import LifoQueue
 import multiprocessing as mp
@@ -27,11 +27,11 @@ MyManager.register('LifoQueue', LifoQueue)
 SeenFilterManager.register('SeenFilter', cls_seen_filter.SeenFilter)
 
 class BaseCrawlController:
-    def __init__(self, manager, conf, shared_counter, log_file, stage):
+    def __init__(self, manager, conf, shared_counter, log_file):
         self.manager = manager
         self.conf = conf
         self.shared_counter = shared_counter
-        self.stage = stage  # Reflect the stage
+        self.stage = conf['method']  # Reflect the stage
         self.logger = LoggerFactory.create_logger("./logs", log_file, log_level=settings.LOG_LEVEL, stdout_flag=True)
         
         self.lifo_manager = self._get_manager()
@@ -68,7 +68,7 @@ class BaseCrawlController:
 
         queue_out_handler = cls_queue_out.QueueOut(self.conf, self.shared_fetch_controller, dom_tld_finished, exclusion_list, self.shared_qout)
         queue_out_handler.fullfill(self.stage)
-
+        
         self.logger.info(f"Loaded {self.seen_filter.bloom_len()} in seen_filter")
         self._start_threads()
         self._start_crawlers(exclusion_list, crawl_func)
@@ -136,20 +136,20 @@ class BaseCrawlController:
         for proc in self.processes:
             proc.join()
 
-class Stage1CrawlController(BaseCrawlController):
+class CrawlController(BaseCrawlController):
     def __init__(self, manager, conf, shared_counter):
         super().__init__(
-            manager, conf, shared_counter, "stage1_ctrl.log", "stage1")
+            manager, conf, shared_counter, "stage_crawl_ctrl.log")
         self.shared_script_controller.update({'landings': 0, 'robots': 0, 'sitemaps': 0})
 
     def run(self):
-        return super().run(stage1_crawl.crawl)
+        return super().run(stage_crawl.crawl)
 
-class Stage2SpiderController(BaseCrawlController):
+class SpiderController(BaseCrawlController):
     def __init__(self, manager, conf, shared_counter):
         super().__init__(
-            manager, conf, shared_counter, "stage2_ctrl.log", "stage2")
+            manager, conf, shared_counter, "stage_spider_ctrl.log")
         self.shared_script_controller.update({'internal_urls': 0})
 
     def run(self):
-        return super().run(stage2_spider.spider)
+        return super().run(stage_spider.spider)

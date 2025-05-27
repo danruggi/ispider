@@ -9,7 +9,7 @@ from ispider_core.utils import domains
 
 from bs4 import BeautifulSoup
 
-def load_website_content(conf, urls, output_path):
+def load_website_content(conf, urls, dom_tld, output_path):
     """
     Combine all HTML content associated with URLs for a given dom_tld into a single JSON file.
     """
@@ -49,33 +49,53 @@ def load_website_content(conf, urls, output_path):
                     continue
 
                 if rd == 'landing_page':
-                    html_path = "njfuture.org/_.html"
+                    html_path = f"{dom_tld}/_.html"
                 else:
                     html_path = entry.get("fname", None)
 
                 if not html_path:
                     continue
 
-                print(html_path)
+                # print(html_path)
                 html_path = os.path.join(conf['path_dumps'], html_path)
 
                 try:
                     html_content = pathlib.Path(html_path).read_text(encoding='utf-8', errors='ignore')
-                    soup = BeautifulSoup(html_content, "html.parser")
-                    main_content_div = soup.find("div", id="njf-main-content")
-                    main_content = main_content_div.decode_contents() if main_content_div else ""
-                    page_title = soup.title.string.strip() if soup.title and soup.title.string else ""
+                    s = BeautifulSoup(html_content, "html.parser")
+
+                    selectors = [
+                        ('article', 'article div.entry-content'),
+                        ('story', '.story-page div.content'),
+                        ('page', '.page-page div.content'),
+                        ('page', '.classless-page div.content'),
+                        ('story', '.story-media-body')
+                    ]
+
+                    main_content = None
+                    used_selector_label = None
+
+                    for label, selector in selectors:
+                        element = s.select_one(selector)
+                        if element:
+                            main_content = element
+                            used_selector_label = label
+                            break
+
+                    page_title = s.title.string.strip() if s.title and s.title.string else ""
 
                 except Exception as e:
                     print(f"Error reading or parsing {html_path}: {e}")
                     continue
 
+                if not main_content:
+                    continue
+
                 # Save the data
                 website_data_by_domain[dom_tld]["pages"][url] = {
                     "status_code": entry.get("status_code"),
-                    "html": html_content,
+                    "selector": used_selector_label,
                     "page_title": page_title,
-                    "main_content": main_content,
+                    "main_content": str(main_content) if main_content else "",
                     # "page_file": html_path,
                 }
 
@@ -86,11 +106,11 @@ def load_website_content(conf, urls, output_path):
                     print(f"Missing HTML file: {html_path}")
                     continue
 
-                try:
-                    html_content = pathlib.Path(html_path).read_text(encoding='utf-8', errors='ignore')
-                except Exception as e:
-                    print(f"Error reading {html_path}: {e}")
-                    continue
+                # try:
+                #     html_content = pathlib.Path(html_path).read_text(encoding='utf-8', errors='ignore')
+                # except Exception as e:
+                #     print(f"Error reading {html_path}: {e}")
+                #     continue
 
 
      # Write output

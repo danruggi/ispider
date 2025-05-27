@@ -20,10 +20,24 @@ class LoggerFactory:
         Returns:
             logging.Logger: Configured logger instance.
         """
-
+        log_file="ispider.log" # overwrite this for installed module
+        
+        # Ensure log folder exists
+        os.makedirs(log_folder, exist_ok=True)
         full_log_file = os.path.join(log_folder, log_file)
 
-        # Define log format
+        # Use a logger name derived from log file name (without extension)
+        logger_name = log_file.replace(".log", "")
+        logger = logging.getLogger(logger_name)
+
+        # Prevent duplicate handlers
+        if logger.handlers:
+            return logger
+
+        # Set log level
+        logger.setLevel(getattr(logging, log_level.upper(), logging.INFO))
+
+        # Define formatters
         color_formatter = colorlog.ColoredFormatter(
             "%(cyan)s%(asctime)s%(reset)s | "
             "%(yellow)s%(levelname)s%(reset)s | "
@@ -36,16 +50,12 @@ class LoggerFactory:
             "%(asctime)s | %(levelname)s | %(filename)s:%(lineno)s | [%(funcName)s] | %(process)d >>> %(message)s"
         )
 
-        # Create logger
-        logger = logging.getLogger(log_file.replace(".log", ""))
-        logger.setLevel(getattr(logging, log_level.upper(), logging.INFO))
-
-        # File Handler (Rotating)
+        # Add file handler
         file_handler = ConcurrentRotatingFileHandler(full_log_file, backupCount=5, maxBytes=5_000_000)
         file_handler.setFormatter(file_formatter)
         logger.addHandler(file_handler)
 
-        # Console Handler (Optional)
+        # Optionally add stdout handler
         if stdout_flag:
             stdout_handler = logging.StreamHandler(sys.stdout)
             stdout_handler.setFormatter(color_formatter)

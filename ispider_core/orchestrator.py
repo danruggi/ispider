@@ -1,5 +1,5 @@
 from ispider_core.utils.logger import LoggerFactory
-from ispider_core.crawlers.cls_controllers import Stage1CrawlController, Stage2SpiderController
+from ispider_core.crawlers import cls_controllers
 
 import time
 from ispider_core import settings
@@ -24,14 +24,13 @@ class Orchestrator:
         method = self.conf['method']
         self.logger.debug(f"Executing: {method}")
         try:
-            if method == 'stage1':
-                Stage1CrawlController(self.manager, self.conf, self.shared_counter).run()
-            elif method == 'stage2':
-                Stage2SpiderController(self.manager, self.conf, self.shared_counter).run()
-
+            if method in ['crawl']:
+                cls_controllers.CrawlController(self.manager, self.conf, self.shared_counter).run()
+            elif method in ['spider']:
+                cls_controllers.SpiderController(self.manager, self.conf, self.shared_counter).run()
 
             else:
-                self.logger.error(f"Unknown method: {method}")
-                raise ValueError(f"Unknown method: {method}")
+                self.logger.error(f"Unknown stage method: {method}")
+                raise ValueError(f"Unknown stage method: {method}")
         except Exception as e:
             self.logger.exception(f"Error executing {method}: {e}")

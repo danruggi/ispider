@@ -20,20 +20,20 @@ def create_parser():
     subparsers = parser.add_subparsers(dest='stage', title='Stages', help='Choose which stage to run')
 
     # Stage 1: Fetch robots, landing pages, and sitemaps.
-    parser_stage1 = subparsers.add_parser('stage1', help='Fetch robots.txt, landing pages, and sitemaps')
-    parser_stage1.add_argument('--config', type=str, default="settings.json", help="Configuration file for stage1")
+    parser_robots = subparsers.add_parser('robots', help='Fetch robots.txt, landing pages, and sitemaps')
+    parser_robots.add_argument('--config', type=str, default="settings.json", help="Configuration file for stage1")
 
     # Stage 2: Crawl links from Stage 1 (depth 0).
-    parser_stage2 = subparsers.add_parser('stage2', help='Crawl links extracted in stage1 (depth 0)')
-    parser_stage2.add_argument('--some-option', type=str, help="Additional option for stage2 if needed")
+    parser_sitemaps = subparsers.add_parser('sitemaps', help='Crawl links extracted in stage1 (depth 0)')
+    parser_sitemaps.add_argument('--some-option', type=str, help="Additional option for stage2 if needed")
 
     # Stage 3: Spider links to max_depth.
-    parser_stage3 = subparsers.add_parser('stage3', help='Spider all links from stage2 to max depth')
-    parser_stage3.add_argument('--max_depth', type=int, default=2, help="Maximum depth to spider")
+    parser_landings = subparsers.add_parser('landings', help='Spider all links from stage2 to max depth')
+    parser_landings.add_argument('--max_depth', type=int, default=2, help="Maximum depth to spider")
 
     # Stage 4: Extract emails, social links, etc.
-    parser_stage4 = subparsers.add_parser('stage4', help='Extract emails, social links, etc.')
-    parser_stage4.add_argument('--extract_option', type=str, help="Specific extraction options for stage4")
+    parser_internals = subparsers.add_parser('internals', help='Extract emails, social links, etc.')
+    parser_internals.add_argument('--extract_option', type=str, help="Specific extraction options for stage4")
 
     return parser
 

@@ -1,14 +1,17 @@
 import os
 import time
 import validators
+import json
+
 from queue import Queue
 from ispider_core.utils import domains
+from ispider_core.utils import engine
 from ispider_core.utils.logger import LoggerFactory
 
 from ispider_core.parsers.html_parser import HtmlParser
 from ispider_core.parsers.sitemaps_parser import SitemapParser
 
-from ispider_core import settings
+import ispider_core.settings as settings
 
 class QueueOut:
     def __init__(self, conf, fetch_controller, dom_tld_finished, exclusion_list, q):
@@ -22,50 +25,76 @@ class QueueOut:
         self.dom_tld_finished = dom_tld_finished
         self.exclusion_list = exclusion_list
         self.tot_finished = 0
+        self.engine_selector = engine.EngineSelector(settings.ENGINE)
         self.q = q
 
-    def fullfill_q(self, url, dom_tld, rd, d=0):
+    def fullfill_q(self, url, dom_tld, rd, depth=0, engine='httpx'):
         self.fetch_controller[dom_tld] += 1
-        reqA = (url, rd, dom_tld, 0, d)
+        reqA = (url, rd, dom_tld, 0, depth, engine)
         self.q.put(reqA)
 
-    def fullfill_q_all_links(self, all_links, dom_tld):
+    def fullfill_q_all_links(self, all_links, dom_tld, engine='httpx'):
         for link in all_links:
-            self.fullfill_q(link, dom_tld, rd='internal_url', d=1)
+            self.fullfill_q(link, dom_tld, rd='internal_url', depth=1, engine=engine)
 
-    def stage2_all_links(self, dom_tld):
-        # read all avail files and load urls
-        rel_path = os.path.join(self.conf['path_dumps'], dom_tld)
+    def all_links(self, dom_tld, stage):
+        jsons_path = self.conf['path_jsons']
 
-        if not os.path.isdir(rel_path):
-            raise Exception("dom_tld directory not found")
         all_links = set()
-        tot_landings=0
-        tot_sitemaps=0
-        for f in os.scandir(rel_path):
-            links = []
-            if f.name == '_.html':
-                # Landing
-                links = HtmlParser(
-                    ).extract_urls(dom_tld, f.path)
-                tot_landings+=len(links)
-            elif f.name != 'robots.txt' and not f.name.endswith('.html'):
-                # Sitemaps
-                with open(f.path, 'rb') as file:
-                    links = SitemapParser(
-                        ).extract_all_links(file.read())
-                tot_sitemaps+=len(links)
+        tot_landings = 0
+        tot_sitemaps = 0
+        landing_done = False
 
-            if links is not None:
-                links = {domains.add_https_protocol(x) for x in links}
-                all_links = all_links.union(links)
+        if os.path.isdir(jsons_path):
+            for entry in os.listdir(jsons_path):
+                if not entry.startswith("crawl_conn_meta.") or not entry.endswith(".json"):
+                    continue
+
+                json_file = os.path.join(jsons_path, entry)
+                with open(json_file, "r", encoding="utf-8") as f:
+                    for line in f:
+                        try:
+                            obj = json.loads(line)
+                            if obj.get("dom_tld") != dom_tld or not obj.get("is_downloaded"):
+                                continue
+
+                            discr = obj.get("request_discriminator")
+
+                            if discr == "sitemap" and obj.get("sitemap_fname"):
+                                sitemap_file = os.path.join(self.conf['path_dumps'], obj["sitemap_fname"])
+                                if os.path.isfile(sitemap_file):
+                                    with open(sitemap_file, 'rb') as sf:
+                                        links = SitemapParser().extract_all_links(sf.read())
+                                        all_links |= {domains.add_https_protocol(x) for x in links}
+                                        tot_sitemaps += len(links)
+
+                            elif discr == "landing_page" and not landing_done:
+                                # Try to guess the landing HTML file
+                                # Try from sitemap_fname if present
+                                rel_path = os.path.join(self.conf['path_dumps'], dom_tld)
+                                landing_file = os.path.join(rel_path, '_.html')
+
+                                if os.path.isfile(landing_file):
+                                    links = HtmlParser().extract_urls(dom_tld, landing_file)
+                                    all_links |= {domains.add_https_protocol(x) for x in links}
+                                    tot_landings += len(links)
+                                    landing_done = True
+
+                        except json.JSONDecodeError:
+                            self.logger.warning(f"Invalid JSON in {json_file}: {line[:80]}...")
+                        except Exception as e:
+                            self.logger.error(f"Error processing entry in {json_file}: {e}")
+
+        self.logger.info(f"Total links from landings: {tot_landings}, sitemaps: {tot_sitemaps}")
         return all_links
 
     def fullfill(self, stage):
         t0 = time.time()
+        self.logger.info(self.conf)
+        self.logger.info(dir(settings))
 
         for url in self.conf['domains']:
-            # self.logger.info(url)
+            self.logger.info(url)
             try:
                 if not url:
                     continue
@@ -75,29 +104,34 @@ class QueueOut:
                 url = domains.add_https_protocol(dom_tld)
 
                 if dom in self.exclusion_list or dom_tld in self.exclusion_list:
+                    self.logger.warning(f'{url} excluded for domain exclusion')
                     continue
 
                 if dom_tld in self.fetch_controller:
+                    self.logger.warning(f'{url} already in fetch controller')
                     continue
 
                 self.fetch_controller[dom_tld] = 0
 
                 if not validators.domain(dom_tld):
+                    self.logger.info(f"{url} not valid domain")
                     continue
 
                 if dom_tld in self.dom_tld_finished:
+                    self.logger.warning(f'{url} already finished')
                     self.tot_finished += 1
                     continue
 
-                if stage == 'stage1':
-                    self.fullfill_q(url, dom_tld, rd='landing_page', d=0)
-                elif stage == 'stage2':
-                    all_links = self.stage2_all_links(dom_tld)
-                    self.fullfill_q_all_links(all_links, dom_tld)
+                self.logger.info(stage)
+                if stage == 'crawl':
+                    self.fullfill_q(url, dom_tld, rd='landing_page', depth=0, engine=self.engine_selector.next())
 
-                if self.tot_inserted % 50000 == 0:
-                    self.logger.info(f"Tot inserted: {self.tot_inserted} in time: {round((time.time()-t0), 2)}")
-            except:
+                elif stage == 'spider':
+                    all_links = self.all_links(dom_tld, stage)
+                    self.fullfill_q_all_links(all_links, dom_tld, engine=self.engine_selector.next())
+                    
+            except Exception as e:
+                self.logger.error(e)
                 continue
 
         try:

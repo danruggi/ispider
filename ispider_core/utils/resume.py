@@ -15,7 +15,7 @@ class ResumeState:
         Handles loading and cleaning up domain crawl states.
 
         :param conf: Configuration dictionary with required paths.
-        :param stage: The stage of crawling (e.g., 'stage1' or 'stage2').
+        :param stage: The stage of crawling.
         """
         self.conf = conf
         self.stage = stage

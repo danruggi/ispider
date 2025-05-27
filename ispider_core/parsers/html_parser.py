@@ -27,9 +27,9 @@ class HtmlParser:
             self.logger.error(f"Error reading file {fpath}: {e}")
             return set()
 
-        return self.extract_urls_from_content(dom_tld, html_content)
+        return self.extract_urls_from_content(dom_tld, dom_tld, html_content)
 
-    def extract_urls_from_content(self, dom_tld, html_content):
+    def extract_urls_from_content(self, dom_tld, sub_dom_tld, html_content):
         """Extracts URLs from raw HTML content."""
         all_href = set()
         try:
@@ -39,7 +39,7 @@ class HtmlParser:
         for link in soup.find_all('a', href=True):
             try:
                 href = link['href'].strip().lower()
-                href_cleaned = self._clean_href(dom_tld, href)
+                href_cleaned = self._clean_href(dom_tld, sub_dom_tld, href)
                 href_cleaned = domains.add_https_protocol(href_cleaned)
                 all_href.add(href_cleaned)
             except Exception as e:
@@ -49,7 +49,7 @@ class HtmlParser:
 
         return all_href
 
-    def _clean_href(self, dom_tld, x):
+    def _clean_href(self, dom_tld, sub_dom_tld, x):
         """Cleans and normalizes a given href URL."""
         x0 = x
         x = x.strip()
@@ -71,15 +71,15 @@ class HtmlParser:
             x = x.replace('../', '')
 
         if x.startswith("/") or x.startswith("?"):
-            x = dom_tld + x
+            x = sub_dom_tld + x
         elif x.startswith("http"):
             x = re.sub(r'http[s]?://', '', x)
         elif "/" not in x:
-            x = dom_tld + "/" + x
+            x = sub_dom_tld + "/" + x
         elif "/" in x and "." not in x.split("/")[0]:
-            x = dom_tld + "/" + x
+            x = sub_dom_tld + "/" + x
         elif re.search(r'[a-z0-9]\.(?:php|html)\?.*=', x):
-            x = dom_tld + "/" + x
+            x = sub_dom_tld + "/" + x
 
         try:
             href_uparsed = urllib.parse.urlparse("//" + x)
@@ -111,7 +111,7 @@ class HtmlParser:
         if href_que:
             href_cleaned += "?" + href_que
 
-        if re.search(r'(?:www\.)?' + dom_tld + r'/?$', href_cleaned):
+        if re.search(r'(?:www\.)?(?:' + re.escape(dom_tld) + r'|' + re.escape(sub_dom_tld) + r')/?$', href_cleaned):
             raise Exception("SKIP008: Home URL FINAL --> " + str(href_cleaned))
 
         if href_dom_tld != dom_tld:

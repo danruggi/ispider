@@ -1,3 +1,15 @@
+# Exclude macOS metadata files
 exclude *.DS_Store
+
+# Exclude local notes or changelogs not meant for packaging
+exclude UPDATE_PIP.md
+
+# Exclude Python bytecode caches
 recursive-exclude __pycache__ *
+
+# Exclude all files under any *.egg-info directory
 recursive-exclude *.egg-info *
+
+# (Optional) Exclude virtual environments if included by mistake (not needed normally)
+prune venv
+prune venv_dev
