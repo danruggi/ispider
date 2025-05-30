@@ -8,16 +8,16 @@ from datetime import datetime
 
 from ispider_core.crawlers import cls_queue_out
 from ispider_core.crawlers import http_client
+from ispider_core.crawlers import http_retries
 from ispider_core.crawlers import http_filters
 
 from ispider_core.utils import headers
 from ispider_core.utils import controllers
 from ispider_core.utils import ifiles
+
 from ispider_core.utils.logger import LoggerFactory
 
 from ispider_core.parsers.html_parser import HtmlParser
-
-from ispider_core import settings
 
 
 def call_and_manage_resps(
@@ -27,9 +27,11 @@ def call_and_manage_resps(
     proxy = None
     to = {}
 
+    html_parser = HtmlParser(logger, conf)
+    
     ## Fetch the block
     # resps = asyncio.run(http_client.async_main(reqAL, mod, hdrs))
-    resps = http_client.fetch_all(reqAL, mod, hdrs)
+    resps = http_client.fetch_all(reqAL, conf, mod, hdrs)
 
     for resp in resps:
 
@@ -42,7 +44,7 @@ def call_and_manage_resps(
         depth = resp['depth']
         error_message = resp['error_message']
         resp['user_agent'] = hdrs['user-agent']
-        engine = resp['engine']
+        current_engine = resp['engine']
         sub_dom_tld = resp.get('final_url_sub_domain_tld', dom_tld)
 
         # SPEED CALC for STATS
@@ -54,7 +56,6 @@ def call_and_manage_resps(
         # Crawl FILTERS
         if dom_tld not in fetch_controller:
             continue
-
 
         try:
             http_filters.filter_on_resp(resp)
@@ -73,23 +74,9 @@ def call_and_manage_resps(
 
         # **********************
         # ERROR CORRECTION / RETRIES
-        if status_code == 403 and engine == 'httpx':
-            logger.warning(f"[{mod}] [{status_code}] -- D:{depth} -- R:{retries}, E:{engine} -- try with curl {url}")
-            time.sleep(settings.TIME_DELAY_RETRY)
-            qout.put((url, rd, dom_tld, retries+1, depth, 'curl'))
+        if http_retries.should_retry(resp, conf, logger, qout, mod):
             continue
 
-        if status_code in settings.CODES_TO_RETRY and retries <= settings.MAXIMUM_RETRIES:
-            logger.warning(f"[{mod}] [{status_code}] -- D:{depth} -- Wait N sec retry URL err {url}, {retries}")
-            time.sleep(settings.TIME_DELAY_RETRY)
-            qout.put((url, rd, dom_tld, retries+1, depth, 'curl'))
-            continue
-
-        if resp.get('error_message') is not None:
-            if '[Errno 0] Error' in resp['error_message'] and retries <= 5:
-                logger.info("[Errno 0] -- Error Wait N sec retry URL err", url, retries, 7)
-                qout.put((url, rd, dom_tld, retries+1, depth, engine))
-                continue
 
         # if status_code != 200:
         logger.debug(f"[{mod}] [{status_code}] -- D:{depth} -- R: {retries} -- [{dom_tld}] {url}")
@@ -97,19 +84,22 @@ def call_and_manage_resps(
         # ***********************
         # NEXT ACTIONS MANAGEMENT
         # ALL - LEVEL 1
-        links = HtmlParser().extract_urls_from_content(dom_tld, sub_dom_tld, resp['content'])
-        with lock:
-            fetch_controller[dom_tld] += len(links)
         
         # FILTER
-        regexes = [re.compile(p) for p in settings.EXCLUDED_EXPRESSIONS_URL]
-        links = [
-            link for link in links
-            if not any(regex.search(link) for regex in regexes)
-        ]
+        if depth + 1 <= conf['WEBSITES_MAX_DEPTH']:
+            links = html_parser.extract_urls_from_content(dom_tld, sub_dom_tld, resp['content'])
+            
+            regexes = [re.compile(p) for p in conf['EXCLUDED_EXPRESSIONS_URL']]
+            links = [
+                link for link in links
+                if not any(regex.search(link) for regex in regexes)
+            ]
 
-        for link in links:
-            qout.put((link, 'internal_url', dom_tld, 0, depth+1, engine))
+            with lock:
+                fetch_controller[dom_tld] += len(links)
+
+            for link in links:
+                qout.put((link, 'internal_url', dom_tld, 0, depth+1, current_engine))
 
         try:
             reduced_reqA = seen_filter.resp_to_req(resp)
@@ -133,13 +123,10 @@ def call_and_manage_resps(
             f.write('\n')
 
         ## 50MB    
-        if os.path.getsize(dump_fname) > settings.MAX_CRAWL_DUMP_SIZE:
+        if os.path.getsize(dump_fname) > conf['MAX_CRAWL_DUMP_SIZE']:
             current_time = datetime.now().strftime("%Y%m%d%H%M%S")
             back_dump_fname = os.path.join(conf['path_jsons'], f"spider_conn_meta.{mod}.{current_time}.json")
             os.replace(dump_fname, back_dump_fname)
-
-
-        time.sleep(1)
 
 def spider(mod, conf, exclusion_list, seen_filter,
         counter, lock,
@@ -161,7 +148,7 @@ def spider(mod, conf, exclusion_list, seen_filter,
                 stdout_flag=True
             )
 
-    tot_workers = settings.POOLS
+    tot_workers = conf['POOLS']
 
     out = list()
     urls = list()
@@ -173,7 +160,7 @@ def spider(mod, conf, exclusion_list, seen_filter,
     t0 = time.time()
     times=list()
 
-    hdrs = getattr(settings, "HEADERS", headers.get_header('basics'))
+    hdrs = headers.get_header('basics')
 
     while True:
         try:
@@ -191,7 +178,7 @@ def spider(mod, conf, exclusion_list, seen_filter,
 
         urls.append(reqA)
         
-        if len(urls) >= settings.ASYNC_BLOCK_SIZE or qin.qsize() == 0:
+        if len(urls) >= conf['ASYNC_BLOCK_SIZE'] or qin.qsize() == 0:
             call_and_manage_resps(urls, mod, lock, exclusion_list, seen_filter, fetch_controller, script_controller, conf, logger, hdrs, qout)
             with lock:
                 counter.value += len(urls)

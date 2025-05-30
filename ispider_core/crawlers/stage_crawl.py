@@ -7,14 +7,14 @@ from datetime import datetime
 
 from ispider_core.crawlers import http_client
 from ispider_core.crawlers import http_filters
+from ispider_core.crawlers import http_retries
 from ispider_core.crawlers import stage_crawl_helpers
+
+from ispider_core.utils.logger import LoggerFactory
 
 from ispider_core.utils import headers
 from ispider_core.utils import controllers
 from ispider_core.utils import ifiles
-from ispider_core.utils.logger import LoggerFactory
-
-from ispider_core import settings
 
 
 def call_and_manage_resps(
@@ -24,9 +24,9 @@ def call_and_manage_resps(
     proxy = None
     to = {}
 
-    logger.info(reqAL)
+    # logger.info(reqAL)
     ## Fetch the block
-    resps = http_client.fetch_all(reqAL, mod, hdrs)
+    resps = http_client.fetch_all(reqAL, conf, mod, hdrs)
     for resp in resps:
 
         # VARIABLE Prepare
@@ -37,7 +37,7 @@ def call_and_manage_resps(
         retries = resp['retries']
         depth = resp['depth']
         error_message = resp['error_message']
-        engine = resp['engine']
+        current_engine = resp['engine']
         resp['user_agent'] = hdrs['user-agent']
 
         # SPEED CALC for STATS
@@ -57,46 +57,31 @@ def call_and_manage_resps(
             controllers.reduce_fetch_controller(fetch_controller, lock, dom_tld)
             continue
 
-        # ## CHECK IF FILE EXISTS
-        # try:
-        #     http_filters.filter_file_exists(resp, conf)
-        # except Exception as e:
-        #     logger.error(e)
-        #     controllers.reduce_fetch_controller(fetch_controller, lock, dom_tld)
-        #     continue
+        ## CHECK IF FILE EXISTS
+        try:
+            http_filters.filter_file_exists(resp, conf)
+        except Exception as e:
+            logger.error(e)
+            controllers.reduce_fetch_controller(fetch_controller, lock, dom_tld)
+            continue
 
         # **********************
         # ERROR CORRECTION / RETRIES
-        if status_code == 403 and engine == 'httpx':
-            logger.warning(f"[{mod}] [{status_code}] -- D:{depth} -- ENGINE:{engine} -- Wait N sec retry URL err {resp.get('final_url_resolved')}  {url}, {retries}")
-            qout.put((url, rd, dom_tld, retries+1, depth, 'curl'))
+        if http_retries.should_retry(resp, conf, logger, qout, mod):
             continue
-
-        if status_code in settings.CODES_TO_RETRY and retries <= settings.MAXIMUM_RETRIES:
-            logger.warning(f"[{mod}] [{status_code}] -- D:{depth} -- Wait N sec retry URL err {resp.get('final_url_resolved')}  {url}, {retries}")
-            time.sleep(settings.TIME_DELAY_RETRY)
-            qout.put((url, rd, dom_tld, retries+1, depth, engine))
-            continue
-
-        if resp.get('error_message') is not None:
-            if '[Errno 0] Error' in resp['error_message'] and retries <= 5:
-                logger.info("[Errno 0] -- Error Wait N sec retry URL err", url, retries, 7)
-                qout.put((url, rd, dom_tld, retries+1, depth, engine))
-                continue
         
         # if status_code != 200:
-        logger.debug(f"[{mod}] [{status_code}] -- D:{depth} -- R: {retries} -- [{dom_tld}] {url}")
+        logger.debug(f"[{mod}] [{status_code}] -- D:{depth} -- R: {retries} -- E:{current_engine} -- [{dom_tld}] {url}")
 
         # ***********************
         # NEXT ACTIONS MANAGEMENT
         # ALL - LEVEL 1
         try:
-            stage_crawl_helpers.generic_crawl(
-                resp, lock, exclusion_list, fetch_controller, qout, engine)
+            stage_crawl_helpers.robots_sitemaps_crawl(
+                resp, lock, exclusion_list, fetch_controller, current_engine, conf, logger, qout)
         except Exception as e:
             logger.fatal(f"generic crawler error: {url} {e}")
             pass
-
 
         # Reduce dom count Up Down by 1
         controllers.reduce_fetch_controller(fetch_controller, lock, dom_tld)
@@ -114,7 +99,7 @@ def call_and_manage_resps(
             f.write('\n')
 
         ## 50MB    
-        if os.path.getsize(dump_fname) > settings.MAX_CRAWL_DUMP_SIZE:
+        if os.path.getsize(dump_fname) > conf['MAX_CRAWL_DUMP_SIZE']:
             current_time = datetime.now().strftime("%Y%m%d%H%M%S")
             back_dump_fname = os.path.join(conf['path_jsons'], f"crawl_conn_meta.{mod}.{current_time}.json")
             os.replace(dump_fname, back_dump_fname)
@@ -134,11 +119,11 @@ def crawl(mod, conf, exclusion_list, seen_filter, counter, lock,
     # from libs.dump_files import dumpToFile
     logger = LoggerFactory.create_logger(
                 "./logs", "stage_crawl.log",
-                log_level=settings.LOG_LEVEL,
+                log_level=conf['LOG_LEVEL'],
                 stdout_flag=True
             )
 
-    tot_workers = settings.POOLS
+    tot_workers = conf['POOLS']
 
     out = list()
     urls = list()
@@ -152,7 +137,7 @@ def crawl(mod, conf, exclusion_list, seen_filter, counter, lock,
     t0 = time.time()
     times=list()
 
-    hdrs = getattr(settings, "HEADERS", headers.get_header('basics'))
+    hdrs = headers.get_header('basics')
 
     while True:
 
@@ -161,7 +146,7 @@ def crawl(mod, conf, exclusion_list, seen_filter, counter, lock,
         except:
             break
 
-        logger.info(reqA)
+        # logger.info(reqA)
         
         url = reqA[0]
         rd = reqA[1]
@@ -172,16 +157,10 @@ def crawl(mod, conf, exclusion_list, seen_filter, counter, lock,
             continue
         urls.append(reqA)
         
-        if len(urls) >= settings.ASYNC_BLOCK_SIZE or qin.qsize() == 0:
+        if len(urls) >= conf['ASYNC_BLOCK_SIZE'] or qin.qsize() == 0:
             call_and_manage_resps(urls, mod, lock, exclusion_list, seen_filter, fetch_controller, script_controller, conf, logger, hdrs, qout)
-            # try:
-            # except Exception as e:
-            #     ppprint("ERR0001 Last call main call_and_manage_resps error", e, 0)
-            #     pass
             with lock:
                 counter.value += len(urls)
-
-            # ppprint("Set urls empty")
             urls = list()
 
     if len(urls) > 0:

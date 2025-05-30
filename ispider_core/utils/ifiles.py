@@ -17,8 +17,11 @@ def dump_to_file(c, conf):
     d = pathlib.Path(path_dumps)
 
     os.makedirs(path_dumps, exist_ok=True)
-    dump_fname = get_dump_file_name(rd, url, dom_tld, conf)
-
+    try:
+        dump_fname = get_dump_file_name(rd, url, dom_tld, conf)
+    except:
+        return False
+        
     if c['content'] is None:
         open(dump_fname, 'w').close()
         return False

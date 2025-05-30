@@ -5,9 +5,7 @@ import pickle
 import shutil
 from pathlib import Path
 
-# from ispider_core import settings
 from ispider_core.utils.logger import LoggerFactory
-from ispider_core import settings
 
 class ResumeState:
     def __init__(self, conf, stage):
@@ -21,7 +19,7 @@ class ResumeState:
         self.stage = stage
         self.logger = LoggerFactory.create_logger(
             "./logs", f"{stage}_resume_state.log",
-            log_level=settings.LOG_LEVEL,
+            log_level=conf['LOG_LEVEL'],
             stdout_flag=True
         )
 

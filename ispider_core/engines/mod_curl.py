@@ -3,7 +3,8 @@ import shlex
 from datetime import datetime
 from ispider_core.utils import domains
 
-def fetch_with_curl(reqA, timeout=30):
+def fetch_with_curl(reqA, conf):
+    timeout = conf['TIMEOUT']
     url, request_discriminator, dom_tld, retries, depth, engine = reqA
     metadata = {
         'url': url,
@@ -19,16 +20,21 @@ def fetch_with_curl(reqA, timeout=30):
         'content': None
     }
 
-    sep = '|'
     marker = 'ENDCURLMETADATA'
+    sep = '|'  # or whatever separator you use
     write_out = f"\n{marker}{sep}%{{http_code}}{sep}%{{url_effective}}{sep}%{{size_download}}"
 
-    raw_cmd = (
-        f"curl -L --max-redirs 5 --connect-timeout {timeout} "
-        f"--silent --show-error --fail "
-        f"-w {shlex.quote(write_out)} {shlex.quote(url)}"
-    )
-    cmd = shlex.split(raw_cmd)
+    cmd = [
+        "curl", "-L", "--max-redirs", "5",
+        "--connect-timeout", str(timeout),
+        "--silent", "--show-error", "--fail"
+    ]
+
+    if conf.get('CURL_INSECURE', False):
+        cmd.append("--insecure")
+
+    cmd += ["-w", write_out, url]
+
 
     try:
         result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)

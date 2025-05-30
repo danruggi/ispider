@@ -6,6 +6,8 @@ __pycache__/
 # C extensions
 *.so
 
+*.csv
+
 # Distribution / packaging
 .Python
 build/
@@ -39,6 +41,7 @@ env/
 .env/
 venv/
 venv_dev/
+venv_test/
 
 # Jupyter Notebook
 .ipynb_checkpoints

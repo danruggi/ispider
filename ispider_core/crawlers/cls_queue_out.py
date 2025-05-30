@@ -11,21 +11,19 @@ from ispider_core.utils.logger import LoggerFactory
 from ispider_core.parsers.html_parser import HtmlParser
 from ispider_core.parsers.sitemaps_parser import SitemapParser
 
-import ispider_core.settings as settings
-
 class QueueOut:
     def __init__(self, conf, fetch_controller, dom_tld_finished, exclusion_list, q):
         self.conf = conf
         self.logger = LoggerFactory.create_logger(
                     "./logs", "queue_out.log",
-                    log_level=settings.LOG_LEVEL,
+                    log_level=conf['LOG_LEVEL'],
                     stdout_flag=True
                 )
         self.fetch_controller = fetch_controller
         self.dom_tld_finished = dom_tld_finished
         self.exclusion_list = exclusion_list
         self.tot_finished = 0
-        self.engine_selector = engine.EngineSelector(settings.ENGINE)
+        self.engine_selector = engine.EngineSelector(conf['ENGINES'])
         self.q = q
 
     def fullfill_q(self, url, dom_tld, rd, depth=0, engine='httpx'):
@@ -64,7 +62,8 @@ class QueueOut:
                                 sitemap_file = os.path.join(self.conf['path_dumps'], obj["sitemap_fname"])
                                 if os.path.isfile(sitemap_file):
                                     with open(sitemap_file, 'rb') as sf:
-                                        links = SitemapParser().extract_all_links(sf.read())
+                                        smp =  SitemapParser(self.logger, self.conf, )
+                                        links = smp.extract_all_links(sf.read())
                                         all_links |= {domains.add_https_protocol(x) for x in links}
                                         tot_sitemaps += len(links)
 
@@ -75,7 +74,8 @@ class QueueOut:
                                 landing_file = os.path.join(rel_path, '_.html')
 
                                 if os.path.isfile(landing_file):
-                                    links = HtmlParser().extract_urls(dom_tld, landing_file)
+                                    hp = HtmlParser(self.logger, self.conf, )
+                                    links = hp.extract_urls(dom_tld, landing_file)
                                     all_links |= {domains.add_https_protocol(x) for x in links}
                                     tot_landings += len(links)
                                     landing_done = True
@@ -85,19 +85,27 @@ class QueueOut:
                         except Exception as e:
                             self.logger.error(f"Error processing entry in {json_file}: {e}")
 
-        self.logger.info(f"Total links from landings: {tot_landings}, sitemaps: {tot_sitemaps}")
+        # self.logger.info(f"Total links from landings: {tot_landings}, sitemaps: {tot_sitemaps}")
         return all_links
 
     def fullfill(self, stage):
         t0 = time.time()
-        self.logger.info(self.conf)
-        self.logger.info(dir(settings))
+
+        total = len(self.conf['domains'])
+        self.logger.info(f"[{stage}] Fullfill the queue for {total} domains")
+        processed = 0
 
         for url in self.conf['domains']:
-            self.logger.info(url)
+            # self.logger.info(url)
             try:
                 if not url:
                     continue
+
+                processed += 1
+                percent = round((processed / total) * 100, 2)
+
+                if processed % max(1, total // 20) == 0:  # Log every ~5% steps
+                    self.logger.info(f"Progress: {percent}% ({processed}/{total})")
 
                 sub, dom, tld, path = domains.get_url_parts(url)
                 dom_tld = f"{dom}.{tld}"
@@ -118,11 +126,11 @@ class QueueOut:
                     continue
 
                 if dom_tld in self.dom_tld_finished:
-                    self.logger.warning(f'{url} already finished')
+                    # self.logger.warning(f'{url} already finished')
                     self.tot_finished += 1
                     continue
 
-                self.logger.info(stage)
+                # self.logger.info(stage)
                 if stage == 'crawl':
                     self.fullfill_q(url, dom_tld, rd='landing_page', depth=0, engine=self.engine_selector.next())
 

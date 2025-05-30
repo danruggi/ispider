@@ -2,15 +2,13 @@ from ispider_core.utils.logger import LoggerFactory
 from ispider_core.crawlers import cls_controllers
 
 import time
-from ispider_core import settings
-
 
 class Orchestrator:
     def __init__(self, conf, manager, shared_counter):
         self.conf = conf
         self.manager = manager
         self.shared_counter = shared_counter
-        self.logger = LoggerFactory.create_logger("./logs", "orchestrator.log", log_level=settings.LOG_LEVEL, stdout_flag=True)
+        self.logger = LoggerFactory.create_logger("./logs", "orchestrator.log", log_level=conf['LOG_LEVEL'], stdout_flag=True)
 
     def run(self):
         start_time = time.time()

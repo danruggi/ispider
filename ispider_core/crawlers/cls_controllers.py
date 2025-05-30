@@ -1,4 +1,3 @@
-from ispider_core import settings
 from ispider_core.utils.logger import LoggerFactory
 from ispider_core.utils import efiles
 from ispider_core.utils import resume
@@ -32,7 +31,7 @@ class BaseCrawlController:
         self.conf = conf
         self.shared_counter = shared_counter
         self.stage = conf['method']  # Reflect the stage
-        self.logger = LoggerFactory.create_logger("./logs", log_file, log_level=settings.LOG_LEVEL, stdout_flag=True)
+        self.logger = LoggerFactory.create_logger("./logs", log_file, log_level=conf['LOG_LEVEL'], stdout_flag=True)
         
         self.lifo_manager = self._get_manager()
 
@@ -43,7 +42,7 @@ class BaseCrawlController:
         self.shared_script_controller = self.manager.dict({'speedb': [], 'speedu': [], 'running_state': 1, 'bytes': 0})
         self.shared_fetch_controller = self.manager.dict()
         self.shared_lock = self.manager.Lock()
-        self.shared_qin = self.manager.Queue(maxsize=settings.QUEUE_MAX_SIZE)
+        self.shared_qin = self.manager.Queue(maxsize=conf['QUEUE_MAX_SIZE'])
         self.shared_qout = self.lifo_manager.LifoQueue()
         self.processes = []
 
@@ -88,10 +87,11 @@ class BaseCrawlController:
                 self.shared_script_controller, 
                 self.shared_fetch_controller, 
                 self.shared_lock, 
+                self.seen_filter, 
+                self.conf,
                 self.shared_qin, 
                 self.shared_qout, 
-                self.seen_filter, 
-                self.conf)))
+            )))
 
         self.logger.info("Starting stats thread...")
         self.processes.append(mp.Process(
@@ -101,12 +101,20 @@ class BaseCrawlController:
                 self.shared_script_controller, 
                 self.shared_fetch_controller, 
                 self.seen_filter,
+                self.conf,
                 self.shared_qout, 
                 self.shared_qin, 
-                self.conf)))
+            )))
 
         self.logger.info("Starting save finished thread...")
-        self.processes.append(mp.Process(target=thread_save_finished.save_finished, args=(self.shared_script_controller, self.shared_fetch_controller, self.shared_lock, self.conf)))
+        self.processes.append(mp.Process(
+            target=thread_save_finished.save_finished, 
+            args=(
+                self.shared_script_controller, 
+                self.shared_fetch_controller, 
+                self.shared_lock, 
+                self.conf
+            )))
 
         for proc in self.processes:
             proc.daemon = True
@@ -114,8 +122,8 @@ class BaseCrawlController:
 
     def _start_crawlers(self, exclusion_list, crawl_func):
         self.logger.info("Initializing crawler pools...")
-        procs = list(range(0, settings.POOLS))
-        with mp.Pool(settings.POOLS) as pool:
+        procs = list(range(0, self.conf['POOLS']))
+        with mp.Pool(self.conf['POOLS']) as pool:
             pool.starmap(
                 crawl_func,
                 zip(
@@ -128,7 +136,8 @@ class BaseCrawlController:
                     repeat(self.shared_script_controller),
                     repeat(self.shared_fetch_controller),
                     repeat(self.shared_qin),
-                    repeat(self.shared_qout)))
+                    repeat(self.shared_qout)
+                ))
 
     def _shutdown(self):
         self.logger.info("Shutting down...")

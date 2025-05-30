@@ -13,3 +13,4 @@ recursive-exclude *.egg-info *
 # (Optional) Exclude virtual environments if included by mistake (not needed normally)
 prune venv
 prune venv_dev
+prune venv_test

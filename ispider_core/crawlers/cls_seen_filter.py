@@ -7,7 +7,6 @@ import multiprocessing
 
 from pybloom_live import BloomFilter
 
-from ispider_core import settings
 from ispider_core.utils.ifiles import get_dump_file_name  # or include get_dump_file_name directly here
 from ispider_core.utils.logger import LoggerFactory
 
@@ -18,7 +17,7 @@ class SeenFilter:
         self.conf = conf
         self.lock = lock
         self.bloom = BloomFilter(capacity=capacity, error_rate=error_rate)
-        self.logger = LoggerFactory.create_logger("./logs", "seen_filter.log", log_level=settings.LOG_LEVEL, stdout_flag=True)
+        self.logger = LoggerFactory.create_logger("./logs", "seen_filter.log", log_level=conf['LOG_LEVEL'], stdout_flag=True)
 
         self._load_existing_hashes()
 
@@ -26,8 +25,11 @@ class SeenFilter:
         rd = reqA[1]
         url = reqA[0]
         dom_tld = reqA[2]
-        path = get_dump_file_name(rd, url, dom_tld, self.conf)
-        # self.logger.debug(f"[{len(reqA)}] {path}")
+        path = ""
+        try:
+            path = get_dump_file_name(rd, url, dom_tld, self.conf)
+        except:
+            pass
         h = hashlib.sha256(str(path).encode('utf-8')).hexdigest()
         return h
 

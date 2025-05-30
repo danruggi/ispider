@@ -4,9 +4,7 @@ import re
 from ispider_core.utils import domains
 from ispider_core.parsers.sitemaps_parser import SitemapParser
 
-from ispider_core import settings
-
-def generic_crawl(c, lock, exclusion_list, fetch_controller, qout, engine):
+def robots_sitemaps_crawl(c, lock, exclusion_list, fetch_controller, engine, conf, logger, qout):
     rd = c['request_discriminator']
     status_code = c['status_code']
     depth = c['depth']
@@ -14,7 +12,7 @@ def generic_crawl(c, lock, exclusion_list, fetch_controller, qout, engine):
     if status_code != 200:
         # If no robot, try with generic sitemap
         if rd == 'robots':
-            if 'sitemaps' not in settings.CRAWL_METHODS:
+            if 'sitemaps' not in conf['CRAWL_METHODS']:
                 return
             sitemap_url = domains.add_https_protocol(dom_tld)+"/sitemap.xml"
             with lock:
@@ -28,7 +26,7 @@ def generic_crawl(c, lock, exclusion_list, fetch_controller, qout, engine):
 
     # if landing and status_code == 200, Add robots.txt
     if rd == 'landing_page':
-        if 'robots' not in settings.CRAWL_METHODS:
+        if 'robots' not in conf['CRAWL_METHODS']:
             return
 
         protfurltld = domains.add_https_protocol(dom_tld);
@@ -41,7 +39,7 @@ def generic_crawl(c, lock, exclusion_list, fetch_controller, qout, engine):
 
     # Add sitemaps from robot file 
     elif rd == 'robots':
-        if 'sitemaps' not in settings.CRAWL_METHODS:
+        if 'sitemaps' not in conf['CRAWL_METHODS']:
             return
         robots_sitemaps = set()
         try:
@@ -65,11 +63,12 @@ def generic_crawl(c, lock, exclusion_list, fetch_controller, qout, engine):
     # Add sitemaps from sitemap, deeper depth: 
     elif rd == 'sitemap':
         
-        sm_urls = SitemapParser().extract_sitemap_urls(c['content'], dom_tld)
+        smp =  SitemapParser(logger, conf)
+        sm_urls = smp.extract_sitemap_urls(c['content'], dom_tld)
         count = 0
         for sitemap_url in sm_urls:
             count+=1;
-            if depth > settings.SITEMAPS_MAX_DEPTH:
+            if depth > conf['SITEMAPS_MAX_DEPTH']:
                 continue
             with lock:
                 fetch_controller[dom_tld] += 1

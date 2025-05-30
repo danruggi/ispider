@@ -9,18 +9,14 @@ from datetime import datetime
 
 from ispider_core.utils.logger import LoggerFactory
 
-# Initialize Logger
-logger = LoggerFactory.create_logger(
-    "./logs", "stats_srv.log",
-    log_level='INFO',
-    stdout_flag=True
-)
-
-def stats_srv(shared_counter, shared_script_controller, shared_fetch_controller, seen_filter,
-              shared_qout, shared_qin, conf):
+def stats_srv(
+    shared_counter, shared_script_controller, shared_fetch_controller, 
+    seen_filter, conf,
+    shared_qout, shared_qin):
     '''
     shared_script_controller: [Landing, Robots, Sitemaps, Bytes Downloaded]
     '''
+    logger = LoggerFactory.create_logger("./logs", "spider_stats.log", log_level=conf['LOG_LEVEL'], stdout_flag=True)
 
     start = datetime.now()
     logger.info(f"Start Time: {start}")

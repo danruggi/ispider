@@ -4,9 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ispider"
-version = "0.2.0"
+version = "0.2.2"
 description = "A high-speed web spider for massive scraping."
 authors = [{ name = "Daniele Rugginenti", email = "daniele.rugginenti@gmail.com" }]
+urls = {"Homepage" =  "https://github.com/danruggi/ispider"}
 license = "MIT"
 readme = "README.md"
 dependencies = [

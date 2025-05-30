@@ -3,27 +3,19 @@ import random
 import multiprocessing as mp
 from queue import Empty  # Import to catch queue exceptions
 
-from ispider_core.utils.logger import LoggerFactory
 from ispider_core.utils import queues
 from ispider_core.utils import ifiles
 from ispider_core.utils import controllers
 
-from ispider_core import settings
+from ispider_core.utils.logger import LoggerFactory
 
-from pybloom_live import BloomFilter
-
-
-# Initialize Logger
-logger = LoggerFactory.create_logger(
-    "./logs", "queue_in_srv.log",
-    log_level=settings.LOG_LEVEL,
-    stdout_flag=True
-)
-
-
-def queue_in_srv(script_controller, fetch_controller, lock, qin, qout, seen_filter, conf):
+def queue_in_srv(
+    script_controller, fetch_controller, lock, 
+    seen_filter, conf, qin, qout):
     
-    Q_MAX = settings.QUEUE_MAX_SIZE
+    logger = LoggerFactory.create_logger("./logs", "queue_in.log", log_level=conf['LOG_LEVEL'], stdout_flag=True)
+    
+    Q_MAX = conf['QUEUE_MAX_SIZE']
     Q_BLOCK_MAX = max(min(Q_MAX, 5000), Q_MAX // 2)
     Q_BLOCK_MIN = max(min(Q_MAX, 1000), Q_MAX // 10)
 

@@ -11,3 +11,15 @@ class EngineSelector:
         except ValueError:
             # current not in the list
             return None
+
+    def next_cyclic(self, current=None):
+        if not self.engines:
+            return None
+        if current is None:
+            return self.engines[0]
+        try:
+            index = self.engines.index(current)
+            return self.engines[(index + 1) % len(self.engines)]
+        except ValueError:
+            # current not in the list
+            return self.engines[0]

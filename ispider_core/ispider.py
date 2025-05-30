@@ -3,9 +3,10 @@ import os
 import requests
 from pathlib import Path
 
-from ispider_core import settings
 from ispider_core.utils.logger import LoggerFactory
 from ispider_core.orchestrator import Orchestrator
+
+from ispider_core import config
 
 class ISpider:
     def __init__(self, domains, stage=None, **kwargs):
@@ -26,18 +27,25 @@ class ISpider:
 
 
     def _setup_conf(self, domains, kwargs):
-        return {
-            'method': 'landings',  # Default step
+        settings = config.Settings()
+        conf = settings.to_dict()
+        conf.update({
             'domains': domains,
-            'path_dumps': self._get_user_folder() / 'data' / 'dumps',
-            'path_jsons': self._get_user_folder() / 'data' / 'jsons',
-            'path_data': self._get_user_folder() / 'data',
-            **kwargs
-        }
+            'method': self.stage or 'landings',
+            **kwargs  # user passed settings
+        })
+
+        base = Path(os.path.expanduser(conf['USER_FOLDER']))
+        conf.update({
+            'path_data': base / 'data',
+            'path_dumps': base / 'data' / 'dumps',
+            'path_jsons': base / 'data' / 'jsons'
+        })
+        return conf
 
     def _get_user_folder(self):
         """Ensure the USER_FOLDER from settings exists and return it as a Path."""
-        raw_path = settings.USER_FOLDER
+        raw_path = self.conf['USER_FOLDER']
         user_folder = Path(os.path.expanduser(raw_path)).resolve()
 
         if not user_folder.parent.exists():

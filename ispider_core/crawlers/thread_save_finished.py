@@ -5,15 +5,10 @@ from pathlib import Path
 from datetime import datetime
 
 from ispider_core.utils.logger import LoggerFactory
-from ispider_core import settings
-
-logger = LoggerFactory.create_logger(
-    "./logs", "save_finished.log",
-    log_level=settings.LOG_LEVEL,
-    stdout_flag=True
-)
 
 def save_finished(script_controller, fetch_controller, lock, conf):
+    logger = LoggerFactory.create_logger("./logs", "save_finished.log", log_level=conf['LOG_LEVEL'], stdout_flag=True)
+
     def save_pickle_file(withLock=True):
         t0 = time.time()
         finished_domains = [k for k, v in fetch_controller.items() if v == 0]

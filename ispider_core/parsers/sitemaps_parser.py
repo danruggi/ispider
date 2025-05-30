@@ -4,17 +4,11 @@ import gzip
 from xml.etree.ElementTree import ElementTree, fromstring
 from urllib.parse import urlparse
 
-from ispider_core.utils.logger import LoggerFactory
-from ispider_core import settings
-
 
 class SitemapParser:
-    def __init__(self):
-        self.logger = LoggerFactory.create_logger(
-            "./logs", "sitemap_parser.log",
-            log_level=settings.LOG_LEVEL,
-            stdout_flag=True
-        )
+    def __init__(self, logger, conf):
+        self.logger = logger
+        self.conf = conf
 
     def _get_ns(self, root):
         """Extract XML namespace from the root element."""
@@ -36,7 +30,7 @@ class SitemapParser:
         Extract links from XML or TXT sitemaps.
         This is the old get_links_from_xml
         """
-        if not data or len(data) > settings.MAX_CRAWL_DUMP_SIZE:
+        if not data or len(data) > self.conf['MAX_CRAWL_DUMP_SIZE']:
             self.logger.warning("Sitemap too big or empty, skipping...")
             return set()
 

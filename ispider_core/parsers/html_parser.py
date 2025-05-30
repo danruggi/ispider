@@ -4,19 +4,15 @@ import re
 import urllib.parse
 
 from ispider_core.utils import domains
-from ispider_core import settings
 from ispider_core.utils.logger import LoggerFactory
 
 from w3lib.url import canonicalize_url, safe_url_string
 import tldextract
 
 class HtmlParser:
-    def __init__(self):
-        self.logger = LoggerFactory.create_logger(
-            "./logs", "html_parser.log",
-            log_level=settings.LOG_LEVEL,
-            stdout_flag=True
-        )
+    def __init__(self, logger, conf):
+        self.logger = logger
+        self.conf = conf
 
     def extract_urls(self, dom_tld, fpath):
         """Reads an HTML file and extracts URLs."""
@@ -97,7 +93,7 @@ class HtmlParser:
 
         if re.search(r'\.[a-z0-9]{3,4}$', href_pat.lower()):
             ext = re.search(r'\.([a-z0-9]{3,4})$', href_pat.lower()).group(1)
-            if ext in settings.EXCLUDED_EXTENSIONS:
+            if ext in self.conf['EXCLUDED_EXTENSIONS']:
                 raise Exception("SKIP006: Excluded Extension: " + str(ext))
 
         if re.search(r'=[a-zA-Z0-9_]+\.jpg', href_que.lower()):
@@ -142,7 +138,7 @@ class HtmlParser:
         if extracted.registered_domain != dom_tld:
             raise Exception("SKIP011: External Domain: " + href)
 
-        if any(href.endswith(ext) for ext in settings.EXCLUDED_EXTENSIONS):
+        if any(href.endswith(ext) for ext in self.conf['EXCLUDED_EXTENSIONS']):
             raise Exception("SKIP012: Excluded Extension: " + href)
 
         return href_cleaned

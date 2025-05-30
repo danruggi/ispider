@@ -6,7 +6,6 @@ from ispider_core.utils import domains
 from ispider_core.parsers import filetype_parser
 
 from datetime import datetime
-from ispider_core import settings
 
 async def fetch_with_httpx(reqA, client, mod):
     metadata = {}
@@ -69,8 +68,8 @@ async def fetch_with_httpx(reqA, client, mod):
         if metadata['content'] is None:
             raise Exception("Bad content")
 
-        if settings.WEBSITES_MAX_DEPTH > 0 and metadata['depth'] > settings.WEBSITES_MAX_DEPTH:
-            raise Exception("Max depth limit")
+        # if conf['WEBSITES_MAX_DEPTH'] > 0 and metadata['depth'] > conf['WEBSITES_MAX_DEPTH']:
+        #     raise Exception("Max depth limit")
 
         try:
             socket = response.stream._stream._httpcore_stream._stream._connection._network_stream.get_extra_info('socket')
