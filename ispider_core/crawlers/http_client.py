@@ -6,7 +6,7 @@ import httpx
 
 from ispider_core.engines import mod_httpx
 from ispider_core.engines import mod_curl
-
+from ispider_core.engines import mod_seleniumbase
 
 import httpx
 import asyncio
@@ -32,10 +32,19 @@ def handle_curl(reqsA, conf, mod=0):
         ]
         return [t.result() for t in tasks]
 
+def handle_seleniumbase(reqsA, conf, mod=0):
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        tasks = [
+            executor.submit(mod_seleniumbase.fetch_with_seleniumbase, reqA, mod, conf)
+            for reqA in reqsA
+        ]
+        return [t.result() for t in tasks]
+
 
 def fetch_all(reqsA, conf, mod=0, headers={}):
     httpx_reqs = [r for r in reqsA if r[5] == "httpx"]
     curl_reqs = [r for r in reqsA if r[5] == "curl"]
+    seleniumbase_reqs = [r for r in reqsA if r[5] == "seleniumbase"]
 
     results = []
 
@@ -47,4 +56,8 @@ def fetch_all(reqsA, conf, mod=0, headers={}):
         curl_results = handle_curl(curl_reqs, conf, mod)
         results.extend(curl_results)
 
+    if seleniumbase_reqs:
+        seleniumbase_results = handle_seleniumbase(seleniumbase_reqs, conf, mod)
+        results.extend(seleniumbase_results)
+        
     return results

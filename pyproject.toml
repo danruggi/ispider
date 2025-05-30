@@ -16,6 +16,7 @@ dependencies = [
     "lxml",
     "tqdm",
     "requests",
+    "seleniumbase",
     "httpx",
     "nslookup",
     "tldextract",

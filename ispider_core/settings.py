@@ -25,7 +25,11 @@ TIMEOUT = 5
 
 # This need to be a list, 
 # curl is used as subprocess, so be sure you installed it on your system
-ENGINES = ['httpx', 'curl']
+# Retry will use next available engine.
+# The script begins wit the suprfast httpx
+# If fail, try with curl
+# If fail, it tries with seleniumbase, headless and uc mode activate
+ENGINES = ['httpx', 'curl', 'seleniumbase']
 
 CURL_INSECURE = False
 

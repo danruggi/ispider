@@ -10,7 +10,7 @@ if __name__ == '__main__':
         'CRAWL_METHODS': [],
         'CODES_TO_RETRY': [430, 503, 500, 429, -1],
         'CURL_INSECURE': True,
-        'ENGINES': ['curl']
+        'ENGINES': ['seleniumbase']
     }
 
     df = pd.read_csv('t.csv')
