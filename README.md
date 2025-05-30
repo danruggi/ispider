@@ -54,19 +54,39 @@ It was designed for maximum speed, so it has some limitations:
 - Parse the HTML, extract all INTERNAL links, follow them recursively, increasing depth  
 
 # USAGE
-pip install ispider
 
+Install it
+```
+pip install ispider
+```
+
+First use
 ```
 from ispider_core import ISpider
-import ispider_core.settings
+import pandas as pd
 
-if __name__ == '__main__':     
+if __name__ == '__main__':
+    config_overrides = {
+        'USER_FOLDER': '/Your/Dump/Folder',
+        'POOLS': 64,
+        'ASYNC_BLOCK_SIZE': 32,
+        'MAXIMUM_RETRIES': 2,
+        'CRAWL_METHODS': [],
+        'CODES_TO_RETRY': [430, 503, 500, 429, -1],
+        'CURL_INSECURE': True,
+        'ENGINES': ['curl']
+    }
 
-    ispider_core.settings.USER_FOLDER = '/Volumes/BACKUP/test'    
+    # Load a file with domains, convert it to a list
+    # doms = ['domain1.com', 'domain2.com'....]
+    df = pd.read_csv('t.csv')
+    doms = df['dom_tld'].tolist()
 
-    doms = ["https://www.example1.com/", "https://www.example2.com/"]
-    ISpider(domains=doms, stage="crawl").run()
-    ISpider(domains=doms, stage="spider").run()
+    # Begin to run
+    # Crawl takes landings, robots, sitemaps
+    ISpider(domains=doms, stage="crawl", **config_overrides).run()
+    # Spider get all links from Crawled pages
+    ISpider(domains=doms, stage="spider", **config_overrides).run()
 ```
 
 # TO KNOW
