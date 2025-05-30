@@ -8,8 +8,8 @@ __pycache__/
 
 *.csv
 
-# # seleniumbase
-# downloaded_files/
+# seleniumbase
+downloaded_files/
 
 # Distribution / packaging
 .Python
