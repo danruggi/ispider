@@ -154,7 +154,7 @@ def spider(mod, conf, exclusion_list, seen_filter,
     # from libs.dump_files import dumpToFile
     logger = LoggerFactory.create_logger(
                 "./logs", "stage_spider.log",
-                log_level='DEBUG',
+                log_level=conf['LOG_LEVEL'],
                 stdout_flag=True
             )
 
