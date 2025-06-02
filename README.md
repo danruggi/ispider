@@ -53,6 +53,8 @@ It was designed for maximum speed, so it has some limitations:
 - Download all links, save them, and save data in JSON  
 - Parse the HTML, extract all INTERNAL links, follow them recursively, increasing depth  
 
+#### Schema
+This is the projectual schema of the crawler/spider
 ![alt text](https://i.imgur.com/uQB3EUp.png)
 
 # USAGE
