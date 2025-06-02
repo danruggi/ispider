@@ -21,8 +21,8 @@ from ispider_core.parsers.html_parser import HtmlParser
 
 
 def call_and_manage_resps(
-    reqAL, mod, lock, exclusion_list, seen_filter,
-    fetch_controller, script_controller, conf, logger, hdrs, qout):
+    reqAL, mod, lock, lock_driver, exclusion_list, seen_filter,
+    fetch_controller, totpages_controller, script_controller, conf, logger, hdrs, qout):
 
     proxy = None
     to = {}
@@ -31,7 +31,7 @@ def call_and_manage_resps(
     
     ## Fetch the block
     # resps = asyncio.run(http_client.async_main(reqAL, mod, hdrs))
-    resps = http_client.fetch_all(reqAL, conf, mod, hdrs)
+    resps = http_client.fetch_all(reqAL, lock_driver, conf, mod, hdrs)
 
     for resp in resps:
 
@@ -96,10 +96,20 @@ def call_and_manage_resps(
             ]
 
             with lock:
-                fetch_controller[dom_tld] += len(links)
+                current_total = totpages_controller[dom_tld] 
+            
+            remaining = conf['MAX_PAGES_POR_DOMAIN'] - current_total
+            if remaining <= 0:
+                links = []
+            elif len(links) > remaining:
+                links = links[:remaining]  # Limit to remaining space
 
-            for link in links:
-                qout.put((link, 'internal_url', dom_tld, 0, depth+1, current_engine))
+            with lock:
+                fetch_controller[dom_tld] += len(links)
+                totpages_controller[dom_tld] += len(links)
+
+                for link in links:
+                    qout.put((link, 'internal_url', dom_tld, 0, depth+1, current_engine))
 
         try:
             reduced_reqA = seen_filter.resp_to_req(resp)
@@ -129,8 +139,8 @@ def call_and_manage_resps(
             os.replace(dump_fname, back_dump_fname)
 
 def spider(mod, conf, exclusion_list, seen_filter,
-        counter, lock,
-        script_controller, fetch_controller, 
+        counter, lock, lock_driver, 
+        script_controller, fetch_controller, totpages_controller,
         qin, qout
     ):
     
@@ -179,7 +189,7 @@ def spider(mod, conf, exclusion_list, seen_filter,
         urls.append(reqA)
         
         if len(urls) >= conf['ASYNC_BLOCK_SIZE'] or qin.qsize() == 0:
-            call_and_manage_resps(urls, mod, lock, exclusion_list, seen_filter, fetch_controller, script_controller, conf, logger, hdrs, qout)
+            call_and_manage_resps(urls, mod, lock, lock_driver, exclusion_list, seen_filter, fetch_controller, totpages_controller, script_controller, conf, logger, hdrs, qout)
             with lock:
                 counter.value += len(urls)
 
@@ -189,7 +199,7 @@ def spider(mod, conf, exclusion_list, seen_filter,
     if len(urls) > 0:
         try:
             logger.info(f"[Worker {mod}] Last call")
-            call_and_manage_resps(urls, mod, lock, exclusion_list, seen_filter, fetch_controller, script_controller, conf, logger, hdrs, qout)
+            call_and_manage_resps(urls, mod, lock, lock_driver, exclusion_list, seen_filter, fetch_controller, totpages_controller, script_controller, conf, logger, hdrs, qout)
         except Exception as e:
             logger.error(f"ERR000F Last call main call_and_manage_resps error {e}")
 

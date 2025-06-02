@@ -35,13 +35,16 @@ class BaseCrawlController:
         
         self.lifo_manager = self._get_manager()
 
+        self.shared_lock = self.manager.Lock()
+        self.shared_lock_driver = self.manager.Lock()
         self.shared_lock_seen_filter = self.manager.Lock()
+
         self.seen_filter_manager = self._get_manager_seen_filter()
         self.seen_filter = self.seen_filter_manager.SeenFilter(conf, self.shared_lock_seen_filter)
 
-        self.shared_script_controller = self.manager.dict({'speedb': [], 'speedu': [], 'running_state': 1, 'bytes': 0})
-        self.shared_fetch_controller = self.manager.dict()
-        self.shared_lock = self.manager.Lock()
+        self.shared_script_controller = self.manager.dict({'speedb': [], 'speedu': [], 'running_state': 1, 'bytes': 0})  # Stats
+        self.shared_fetch_controller = self.manager.dict()          # Increase and decrease page count por domain
+        self.shared_totpages_controller = self.manager.dict()      # Increase page count por domain
         self.shared_qin = self.manager.Queue(maxsize=conf['QUEUE_MAX_SIZE'])
         self.shared_qout = self.lifo_manager.LifoQueue()
         self.processes = []
@@ -57,18 +60,32 @@ class BaseCrawlController:
         m.start()
         return m
 
+    def _activate_seleniumbase(self):
+        if 'seleniumbase' in self.conf['ENGINES']:
+            from ispider_core.engines import mod_seleniumbase
+            mod_seleniumbase.prepare_chromedriver_once()
+
     def run(self, crawl_func):
         self.logger.info("### BEGINNING CRAWLER")
+
         exclusion_list = efiles.load_domains_exclusion_list(self.conf, protocol=False)
         self.logger.info(f"Excluded domains total: {len(exclusion_list)}")
 
         dom_tld_finished = resume.ResumeState(self.conf, self.stage).load_finished_domains()
         self.logger.info(f"Tot already Finished: {len(dom_tld_finished)}")
 
-        queue_out_handler = cls_queue_out.QueueOut(self.conf, self.shared_fetch_controller, dom_tld_finished, exclusion_list, self.shared_qout)
+        queue_out_handler = cls_queue_out.QueueOut(
+            self.conf, 
+            self.shared_fetch_controller, 
+            self.shared_totpages_controller, 
+            dom_tld_finished, 
+            exclusion_list, 
+            self.shared_qout)
         queue_out_handler.fullfill(self.stage)
         
         self.logger.info(f"Loaded {self.seen_filter.bloom_len()} in seen_filter")
+
+        self._activate_seleniumbase()
         self._start_threads()
         self._start_crawlers(exclusion_list, crawl_func)
 
@@ -133,8 +150,10 @@ class BaseCrawlController:
                     repeat(self.seen_filter),
                     repeat(self.shared_counter),
                     repeat(self.shared_lock),
+                    repeat(self.shared_lock_driver),
                     repeat(self.shared_script_controller),
                     repeat(self.shared_fetch_controller),
+                    repeat(self.shared_totpages_controller),
                     repeat(self.shared_qin),
                     repeat(self.shared_qout)
                 ))

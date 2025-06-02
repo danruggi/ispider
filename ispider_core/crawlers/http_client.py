@@ -32,16 +32,16 @@ def handle_curl(reqsA, conf, mod=0):
         ]
         return [t.result() for t in tasks]
 
-def handle_seleniumbase(reqsA, conf, mod=0):
-    with ThreadPoolExecutor(max_workers=2) as executor:
+def handle_seleniumbase(reqsA, lock_driver, conf, mod=0):
+    with ThreadPoolExecutor(max_workers=1) as executor:
         tasks = [
-            executor.submit(mod_seleniumbase.fetch_with_seleniumbase, reqA, mod, conf)
+            executor.submit(mod_seleniumbase.fetch_with_seleniumbase, reqA, lock_driver, mod, conf)
             for reqA in reqsA
         ]
         return [t.result() for t in tasks]
 
 
-def fetch_all(reqsA, conf, mod=0, headers={}):
+def fetch_all(reqsA, lock_driver, conf, mod=0, headers={}):
     httpx_reqs = [r for r in reqsA if r[5] == "httpx"]
     curl_reqs = [r for r in reqsA if r[5] == "curl"]
     seleniumbase_reqs = [r for r in reqsA if r[5] == "seleniumbase"]
@@ -57,7 +57,7 @@ def fetch_all(reqsA, conf, mod=0, headers={}):
         results.extend(curl_results)
 
     if seleniumbase_reqs:
-        seleniumbase_results = handle_seleniumbase(seleniumbase_reqs, conf, mod)
+        seleniumbase_results = handle_seleniumbase(seleniumbase_reqs, lock_driver, conf, mod)
         results.extend(seleniumbase_results)
         
     return results

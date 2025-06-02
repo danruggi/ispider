@@ -3,7 +3,15 @@ from datetime import datetime
 from ispider_core.utils import domains
 from ispider_core.parsers import filetype_parser
 
-def fetch_with_seleniumbase(reqA, mod, conf=None):
+from seleniumbase import Driver
+
+# One-time setup before launching workers
+def prepare_chromedriver_once():
+    # This triggers the download/setup of uc_driver in a single process
+    driver = Driver(uc=True, headless=True)
+    driver.quit()
+
+def fetch_with_seleniumbase(reqA, lock_driver, mod, conf=None):
     url, request_discriminator, dom_tld, retries, depth, engine = reqA
     metadata = {
         'url': url,
@@ -21,36 +29,37 @@ def fetch_with_seleniumbase(reqA, mod, conf=None):
     }
 
     try:
-        with SB(uc=True, headless=True) as sb:
-            sb.driver.set_page_load_timeout(30)
-            sb.open(url)
+        with lock_driver:
+            with SB(uc=True, headless=True) as sb:
+                sb.driver.set_page_load_timeout(conf['TIMEOUT'])
+                sb.open(url)
 
-            response_url = sb.get_current_url()
-            metadata['final_url_raw'] = response_url
+                response_url = sb.get_current_url()
+                metadata['final_url_raw'] = response_url
 
-            try:
-                sub, dom, tld, path = domains.get_url_parts(response_url)
-                metadata['final_url_domain_tld'] = f"{dom}.{tld}"
-                metadata['final_url_sub_domain_tld'] = f"{sub}.{dom}.{tld}"
-            except Exception as e:
-                metadata['error_message'] = f"Domain parsing failed: {e}"
+                try:
+                    sub, dom, tld, path = domains.get_url_parts(response_url)
+                    metadata['final_url_domain_tld'] = f"{dom}.{tld}"
+                    metadata['final_url_sub_domain_tld'] = f"{sub}.{dom}.{tld}"
+                except Exception as e:
+                    metadata['error_message'] = f"Domain parsing failed: {e}"
 
-            if metadata['final_url_domain_tld'].lower() != dom_tld.lower():
-                metadata["status_code"] = -1
-                raise Exception("Redirects not allowed by design")
+                if metadata['final_url_domain_tld'].lower() != dom_tld.lower():
+                    metadata["status_code"] = -1
+                    raise Exception("Redirects not allowed by design")
 
-            html = sb.get_page_source()
-            metadata['content'] = html.encode("utf-8")
-            metadata['status_code'] = 200  # Selenium doesn't return status codes directly
+                html = sb.get_page_source()
+                metadata['content'] = html.encode("utf-8")
+                metadata['status_code'] = 200  # Selenium doesn't return status codes directly
 
-            if filetype_parser.exclude_file_types_from_data(metadata['content']):
-                raise Exception("Unsupported file type")
+                if filetype_parser.exclude_file_types_from_data(metadata['content']):
+                    raise Exception("Unsupported file type")
 
-            metadata['num_bytes_downloaded'] = len(metadata['content'])
-            metadata['is_downloaded'] = True
-            metadata['has_cookies'] = bool(sb.driver.get_cookies())
-            metadata['cookie_names'] = ";".join([c['name'] for c in sb.driver.get_cookies()])
-            metadata['browser_version'] = sb.driver.capabilities.get('browserVersion', 'unknown')
+                metadata['num_bytes_downloaded'] = len(metadata['content'])
+                metadata['is_downloaded'] = True
+                metadata['has_cookies'] = bool(sb.driver.get_cookies())
+                metadata['cookie_names'] = ";".join([c['name'] for c in sb.driver.get_cookies()])
+                metadata['browser_version'] = sb.driver.capabilities.get('browserVersion', 'unknown')
 
     except Exception as e:
         metadata['content'] = None

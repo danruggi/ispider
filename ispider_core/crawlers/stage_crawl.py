@@ -18,7 +18,7 @@ from ispider_core.utils import ifiles
 
 
 def call_and_manage_resps(
-    reqAL, mod, lock, exclusion_list, seen_filter,
+    reqAL, mod, lock, lock_driver, exclusion_list, seen_filter,
     fetch_controller, script_controller, conf, logger, hdrs, qout):
 
     proxy = None
@@ -26,7 +26,7 @@ def call_and_manage_resps(
 
     # logger.info(reqAL)
     ## Fetch the block
-    resps = http_client.fetch_all(reqAL, conf, mod, hdrs)
+    resps = http_client.fetch_all(reqAL, lock_driver, conf, mod, hdrs)
     for resp in resps:
 
         # VARIABLE Prepare
@@ -104,8 +104,9 @@ def call_and_manage_resps(
             back_dump_fname = os.path.join(conf['path_jsons'], f"crawl_conn_meta.{mod}.{current_time}.json")
             os.replace(dump_fname, back_dump_fname)
 
-def crawl(mod, conf, exclusion_list, seen_filter, counter, lock,
-        script_controller, fetch_controller, 
+def crawl(mod, conf, exclusion_list, seen_filter, 
+        counter, lock, lock_driver, 
+        script_controller, fetch_controller, totpages_controller,
         qin, qout
     ):
     
@@ -158,7 +159,7 @@ def crawl(mod, conf, exclusion_list, seen_filter, counter, lock,
         urls.append(reqA)
         
         if len(urls) >= conf['ASYNC_BLOCK_SIZE'] or qin.qsize() == 0:
-            call_and_manage_resps(urls, mod, lock, exclusion_list, seen_filter, fetch_controller, script_controller, conf, logger, hdrs, qout)
+            call_and_manage_resps(urls, mod, lock, lock_driver, exclusion_list, seen_filter, fetch_controller, script_controller, conf, logger, hdrs, qout)
             with lock:
                 counter.value += len(urls)
             urls = list()
@@ -166,7 +167,7 @@ def crawl(mod, conf, exclusion_list, seen_filter, counter, lock,
     if len(urls) > 0:
         try:
             logger.info(f"[Worker {mod}] Last call")
-            call_and_manage_resps(urls, mod, lock, exclusion_list, seen_filter, fetch_controller, script_controller, conf, logger, hdrs, qout)
+            call_and_manage_resps(urls, mod, lock, lock_driver, exclusion_list, seen_filter, fetch_controller, script_controller, conf, logger, hdrs, qout)
         except Exception as e:
             logger.error(f"ERR000F Last call main call_and_manage_resps error {e}")
 

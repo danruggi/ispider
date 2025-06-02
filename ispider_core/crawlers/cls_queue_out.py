@@ -12,7 +12,7 @@ from ispider_core.parsers.html_parser import HtmlParser
 from ispider_core.parsers.sitemaps_parser import SitemapParser
 
 class QueueOut:
-    def __init__(self, conf, fetch_controller, dom_tld_finished, exclusion_list, q):
+    def __init__(self, conf, fetch_controller, totpages_controller,dom_tld_finished, exclusion_list, q):
         self.conf = conf
         self.logger = LoggerFactory.create_logger(
                     "./logs", "queue_out.log",
@@ -20,6 +20,7 @@ class QueueOut:
                     stdout_flag=True
                 )
         self.fetch_controller = fetch_controller
+        self.totpages_controller = totpages_controller
         self.dom_tld_finished = dom_tld_finished
         self.exclusion_list = exclusion_list
         self.tot_finished = 0
@@ -28,6 +29,7 @@ class QueueOut:
 
     def fullfill_q(self, url, dom_tld, rd, depth=0, engine='httpx'):
         self.fetch_controller[dom_tld] += 1
+        self.totpages_controller[dom_tld] += 1
         reqA = (url, rd, dom_tld, 0, depth, engine)
         self.q.put(reqA)
 
@@ -116,10 +118,12 @@ class QueueOut:
                     continue
 
                 if dom_tld in self.fetch_controller:
-                    self.logger.warning(f'{url} already in fetch controller')
                     continue
-
                 self.fetch_controller[dom_tld] = 0
+
+                if dom_tld in self.totpages_controller:
+                    continue
+                self.totpages_controller[dom_tld] = 0
 
                 if not validators.domain(dom_tld):
                     self.logger.info(f"{url} not valid domain")

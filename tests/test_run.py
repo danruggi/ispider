@@ -3,14 +3,15 @@ import pandas as pd
 
 if __name__ == '__main__':
     config_overrides = {
-        'USER_FOLDER': '/Volumes/Sandisk2TB/test_business_scraper_10',
-        'POOLS': 8,
+        'USER_FOLDER': '/Volumes/Sandisk2TB/test_business_scraper_12',
+        'POOLS': 32,
         'ASYNC_BLOCK_SIZE': 16,
-        'MAXIMUM_RETRIES': 2,
+        'MAXIMUM_RETRIES': 1,
         'CRAWL_METHODS': [],
         'CODES_TO_RETRY': [430, 503, 500, 429, -1],
         'CURL_INSECURE': True,
-        'ENGINES': ['seleniumbase']
+        'MAX_PAGES_POR_DOMAIN': 50,
+        'ENGINES': ['httpx', 'curl']
     }
 
     df = pd.read_csv('t.csv')
