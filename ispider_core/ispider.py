@@ -20,10 +20,12 @@ class ISpider:
         self.manager = None
         self.shared_counter = None
         self.conf = self._setup_conf(domains, kwargs)
-        self.logger = LoggerFactory.create_logger("./logs", "ispider.log", log_level='DEBUG', stdout_flag=True)
+        self.logger = LoggerFactory.create_logger("./logs", "ispider.log", log_level=self.conf['LOG_LEVEL'], stdout_flag=True)
+        
         self._prepare_directories()
         self._download_csv_if_needed()
-        self.logger.debug(f"Logger handlers count: {len(self.logger.handlers)}")
+        
+        # self.logger.debug(f"Logger handlers count: {len(self.logger.handlers)}")
 
 
     def _setup_conf(self, domains, kwargs):
