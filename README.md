@@ -53,7 +53,7 @@ It was designed for maximum speed, so it has some limitations:
 - Download all links, save them, and save data in JSON  
 - Parse the HTML, extract all INTERNAL links, follow them recursively, increasing depth  
 
-![alt text](https://drive.google.com/file/d/1PNNXiPPlfyc_pdNXA36o2S5qXo3iU7Ws/view?usp=sharing)
+![alt text](https://i.imgur.com/uQB3EUp.png)
 
 # USAGE
 
