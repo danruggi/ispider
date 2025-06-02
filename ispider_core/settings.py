@@ -72,7 +72,7 @@ EXCLUDED_EXTENSIONS = [
 
 # Exclude all urls that contains this REGEX
 EXCLUDED_EXPRESSIONS_URL = [
-    r'test',
+    # r'test',
 ]
 
 
