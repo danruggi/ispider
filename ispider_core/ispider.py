@@ -61,7 +61,7 @@ class ISpider:
             (self._get_user_folder() / subfolder).mkdir(parents=True, exist_ok=True)
 
     def _download_csv_if_needed(self):
-        csv_url = "https://raw.githubusercontent.com/danruggi/ispider/dev/static/exclude_domains.csv"
+        csv_url = "https://raw.githubusercontent.com/danruggi/ispider/refs/heads/main/static/exclude_domains.csv"
         csv_path = self._get_user_folder() / "sources" / "exclude_domains.csv"
         if not csv_path.exists():
             try:

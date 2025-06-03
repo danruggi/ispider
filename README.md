@@ -55,7 +55,7 @@ It was designed for maximum speed, so it has some limitations:
 
 #### Schema
 This is the projectual schema of the crawler/spider
-![alt text](https://i.imgur.com/uQB3EUp.png)
+![alt text](https://imgur.com/a/cQUqf3O)
 
 # USAGE
 

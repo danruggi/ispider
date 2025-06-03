@@ -22,8 +22,6 @@ def load_domains_exclusion_list(conf, protocol=True):
                 if protocol:
                     domain = domains.add_https_protocol(domain)
                 out.append(domain)
-        return out
-    except FileNotFoundError as e:
-        raise FileNotFoundError(f"Domain exclusion list file not found: {file_path}") from e
-    except Exception as e:
-        raise ValueError(f"Error processing domain exclusion list: {str(e)}") from e
+    except:
+        pass
+    return out
