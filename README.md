@@ -1,7 +1,5 @@
 # ispider_core
 
-# V0.2
-
 **ispider** is a module to spider websites
 
 - Multicore and multithreaded  
@@ -10,7 +8,7 @@
 - The `httpx` engine works in asyncio blocks defined by `settings.ASYNC_BLOCK_SIZE`, so total concurrent threads are `ASYNC_BLOCK_SIZE * POOLS`
 
 It was designed for maximum speed, so it has some limitations:  
-- As of v0.2, it does not support files (pdf, video, images, etc); it only processes HTML
+- As of v0.4.1, it does not support files (pdf, video, images, etc); it only processes HTML
 
 
 # HOW IT WORKS - SIMPLE
