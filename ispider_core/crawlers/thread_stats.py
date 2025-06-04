@@ -19,7 +19,7 @@ def stats_srv(
     logger = LoggerFactory.create_logger("./logs", "spider_stats.log", log_level=conf['LOG_LEVEL'], stdout_flag=True)
 
     start = datetime.now()
-    logger.info(f"Start Time: {start}")
+    logger.debug(f"Start Time: {start}")
     start_datetime = start.strftime("%Y-%m-%d %H:%M")
 
     x0 = time.time()

@@ -4,7 +4,7 @@ import re
 from ispider_core.utils import domains
 from ispider_core.parsers.sitemaps_parser import SitemapParser
 
-def robots_sitemaps_crawl(c, lock, exclusion_list, fetch_controller, engine, conf, logger, qout):
+def robots_sitemaps_crawl(c, lock, fetch_controller, engine, conf, logger, qout):
     rd = c['request_discriminator']
     status_code = c['status_code']
     depth = c['depth']

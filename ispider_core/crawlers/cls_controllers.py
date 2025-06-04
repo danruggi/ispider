@@ -97,7 +97,7 @@ class BaseCrawlController:
         return True
 
     def _start_threads(self):
-        self.logger.info("Starting queue input thread...")
+        self.logger.debug("Starting queue input thread...")
         self.processes.append(mp.Process(
             target=thread_queue_in.queue_in_srv, 
             args=(
@@ -110,7 +110,7 @@ class BaseCrawlController:
                 self.shared_qout, 
             )))
 
-        self.logger.info("Starting stats thread...")
+        self.logger.debug("Starting stats thread...")
         self.processes.append(mp.Process(
             target=thread_stats.stats_srv, 
             args=(
@@ -123,7 +123,7 @@ class BaseCrawlController:
                 self.shared_qin, 
             )))
 
-        self.logger.info("Starting save finished thread...")
+        self.logger.debug("Starting save finished thread...")
         self.processes.append(mp.Process(
             target=thread_save_finished.save_finished, 
             args=(
@@ -138,7 +138,7 @@ class BaseCrawlController:
             proc.start()
 
     def _start_crawlers(self, exclusion_list, crawl_func):
-        self.logger.info("Initializing crawler pools...")
+        self.logger.debug("Initializing crawler pools...")
         procs = list(range(0, self.conf['POOLS']))
         with mp.Pool(self.conf['POOLS']) as pool:
             pool.starmap(

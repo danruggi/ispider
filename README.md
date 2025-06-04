@@ -4,8 +4,10 @@
 
 - Multicore and multithreaded  
 - Accepts hundreds/thousands of websites/domains as input  
-- Sparse connections to avoid repeated requests against the same domain  
+- Sparse requests to avoid repeated calls against the same domain
+- Automatic retry with different engines (httpx, curl, seleniumbase)
 - The `httpx` engine works in asyncio blocks defined by `settings.ASYNC_BLOCK_SIZE`, so total concurrent threads are `ASYNC_BLOCK_SIZE * POOLS`
+- It supports retry with different engines (httpx, curl, seleniumbase [testing])
 
 It was designed for maximum speed, so it has some limitations:  
 - As of v0.4.1, it does not support files (pdf, video, images, etc); it only processes HTML
@@ -74,7 +76,7 @@ if __name__ == '__main__':
         'ASYNC_BLOCK_SIZE': 32,
         'MAXIMUM_RETRIES': 2,
         'CRAWL_METHODS': [],
-        'CODES_TO_RETRY': [430, 503, 500, 429, -1],
+        'CODES_TO_RETRY': [430, 503, 500, 429],
         'CURL_INSECURE': True,
         'ENGINES': ['curl']
     }

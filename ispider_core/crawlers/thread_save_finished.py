@@ -33,7 +33,7 @@ def save_finished(script_controller, fetch_controller, lock, conf):
 
         return True
 
-    logger.info("Begin saved Finished Process")
+    logger.debug("Begin saved Finished Process")
     t0 = time.time()
 
     try:

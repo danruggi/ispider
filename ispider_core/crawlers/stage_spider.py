@@ -183,7 +183,7 @@ def spider(mod, conf, exclusion_list, seen_filter,
         dom_tld = reqA[2]
         if dom_tld in exclusion_list:
             reduceFetchController(fetch_controller, lock, dom_tld)
-            logger.debug(f"{dom_tld} excluded {url}")
+            logger.warning(f"{dom_tld} excluded {url}")
             continue
 
         urls.append(reqA)
@@ -204,5 +204,5 @@ def spider(mod, conf, exclusion_list, seen_filter,
             logger.error(f"ERR000F Last call main call_and_manage_resps error {e}")
 
     q = None;
-    logger.info(f"[Worker {mod}] Finished")
+    logger.debug(f"[Worker {mod}] Finished")
     return None

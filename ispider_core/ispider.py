@@ -8,6 +8,8 @@ from ispider_core.orchestrator import Orchestrator
 
 from ispider_core import config
 
+from importlib.metadata import version, PackageNotFoundError
+
 class ISpider:
     def __init__(self, domains, stage=None, **kwargs):
         """
@@ -82,6 +84,14 @@ class ISpider:
         """ Run the specified stage or all sequentially """
         self._ensure_manager()
         orchestrator = Orchestrator(self.conf, self.manager, self.shared_counter)
+
+        try:
+            self.logger.info(f"Package version: {version('ispider')}")
+        except PackageNotFoundError:
+            self.logger.info("Package not installed or name mismatch.")
+
+        self.logger.info(f"Using output folder: {self._get_user_folder()}")
+        
         if self.stage:
             self.logger.info(f"*** Running Stage: {self.stage}")
             self.conf['method'] = self.stage

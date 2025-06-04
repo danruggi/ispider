@@ -21,7 +21,7 @@ def queue_in_srv(
 
     to_insert = []
 
-    logger.info("Begin Queue Process")
+    logger.debug("Begin Queue Process")
     
     t0 = time.time()
 
@@ -69,5 +69,5 @@ def queue_in_srv(
                 to_insert.clear()
 
     except KeyboardInterrupt:
-        logger.warning(f"Missing to insert: {len(to_insert)}")
-        logger.warning("Closing the q_in queue manager")
+        logger.warning(f"Keyboard Interrupt received. Missing to insert: {len(to_insert)}")
+        logger.warning("Keyboard Interrupt received. Closing the q_in queue manager")

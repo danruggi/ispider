@@ -68,9 +68,19 @@ def get_dump_file_name(rd, url, dom_tld, conf):
         if not url_path and not url_quer and not sub:
             raise Exception(f"Empty internal_url Name: {url}")
 
-        fn = re.sub(r'[^a-zA-Z0-9.]', '_', f"{sub}_{dom}_{tld}_{url_path}_{url_quer}_").strip("_")
-        fn = re.sub(r'_+', '_', fn)  # Replace multiple underscores with a single one
-        fn = fn[:200]  # Limit filename length
+        # Build the base string
+        base = f"{sub}_{dom}_{tld}_{url_path}_{url_quer}"
+        fn = re.sub(r'[^a-zA-Z0-9._-]', '_', base)  # Safe chars only
+        fn = re.sub(r'_+', '_', fn).strip("._ ")
+
+        # Compute the max filename length based on MAX_PATH (typically 260 on Windows)
+        MAX_PATH = 256 if os.name == 'nt' else 512  # Linux/macOS typically much higher
+        reserved = len(os.path.abspath(path_dumps)) + len(os.sep) + len("_.html")
+        max_len = MAX_PATH - reserved
+
+        # Safely truncate the filename base
+        fn = fn[:max_len]
+
         return os.path.join(path_dumps, f"_{fn}.html")
 
     raise Exception(f"Unknown request_discriminator: {rd}")
