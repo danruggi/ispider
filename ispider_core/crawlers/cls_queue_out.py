@@ -135,7 +135,7 @@ class QueueOut:
                     continue
 
                 # self.logger.info(stage)
-                if stage == 'crawl':
+                if stage in ['crawl', 'unified']:
                     self.fullfill_q(url, dom_tld, rd='landing_page', depth=0, engine=self.engine_selector.next())
 
                 elif stage == 'spider':

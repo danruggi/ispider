@@ -84,6 +84,10 @@ def stats_srv(
                             f"QOUT SIZE: {shared_qout.qsize()} QIN SIZE: {shared_qin.qsize()}")
                 logger.info(f"*** [Finished: {count_finished_domains}/{count_all_domains}] - Incomplete: {count_unfinished_domains} "
                             f"- [More than 100: {count_bigger_domains}]")
+                logger.info(f"Landings:  {shared_script_controller.get('landings', 0)}")
+                logger.info(f"Robots:    {shared_script_controller.get('robots', 0)}")
+                logger.info(f"Sitemaps:  {shared_script_controller.get('sitemaps', 0)}")
+                logger.info(f"Internals: {shared_script_controller.get('internal_urls', 0)}")
                 logger.info(f"T5: {bl}")
                 logger.info(f"B5: {sl}")
                 logger.info(f"Seen Filter len: {seen_filter.bloom_len()}")

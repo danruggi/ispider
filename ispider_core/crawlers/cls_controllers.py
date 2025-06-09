@@ -7,12 +7,13 @@ from ispider_core.crawlers import cls_seen_filter
 from ispider_core.crawlers import thread_queue_in
 from ispider_core.crawlers import thread_stats
 from ispider_core.crawlers import thread_save_finished
-from ispider_core.crawlers import stage_crawl, stage_spider
+from ispider_core.crawlers import stage_crawl, stage_spider, stage_unified
 
 from queue import LifoQueue
 import multiprocessing as mp
 import time
 from itertools import repeat
+import threading
 
 from multiprocessing.managers import BaseManager
 
@@ -24,6 +25,7 @@ class SeenFilterManager(BaseManager):
     
 MyManager.register('LifoQueue', LifoQueue)
 SeenFilterManager.register('SeenFilter', cls_seen_filter.SeenFilter)
+
 
 class BaseCrawlController:
     def __init__(self, manager, conf, shared_counter, log_file):
@@ -42,6 +44,10 @@ class BaseCrawlController:
         self.seen_filter_manager = self._get_manager_seen_filter()
         self.seen_filter = self.seen_filter_manager.SeenFilter(conf, self.shared_lock_seen_filter)
 
+        self.enqueue_thread = None
+        self.shared_new_domains = self.manager.list()
+        
+        self.queue_out_handler = None
         self.shared_script_controller = self.manager.dict({'speedb': [], 'speedu': [], 'running_state': 1, 'bytes': 0})  # Stats
         self.shared_fetch_controller = self.manager.dict()          # Increase and decrease page count por domain
         self.shared_totpages_controller = self.manager.dict()      # Increase page count por domain
@@ -49,13 +55,32 @@ class BaseCrawlController:
         self.shared_qout = self.lifo_manager.LifoQueue()
         self.processes = []
 
+    # @property
+    # def shared_fetch_controller(self):
+    #     return self.shared_fetch_controller
+    
+    # @property 
+    # def shared_qin(self):
+    #     return self.shared_qin
+
+    def enqueue_new_domains(self, queue_out_handler):
+        while self.shared_script_controller['running_state']:  # Controlled shutdown
+            if self.shared_new_domains:
+                new_domains = list(self.shared_new_domains)
+                while self.shared_new_domains:
+                    self.shared_new_domains.pop(0)
+                self.logger.info(f"Adding {len(new_domains)} new domain(s) dynamically.")
+                queue_out_handler.conf['domains'] = new_domains
+                queue_out_handler.fullfill(self.stage)
+            time.sleep(3)
+        self.logger.info("Closing enqueue new domains")
+
     def _get_manager_seen_filter(self):
         m = SeenFilterManager()
         m.start()
         return m
 
     def _get_manager(self):
-        
         m = MyManager()
         m.start()
         return m
@@ -65,36 +90,6 @@ class BaseCrawlController:
             from ispider_core.engines import mod_seleniumbase
             mod_seleniumbase.prepare_chromedriver_once()
 
-    def run(self, crawl_func):
-        self.logger.info("### BEGINNING CRAWLER")
-
-        exclusion_list = efiles.load_domains_exclusion_list(self.conf, protocol=False)
-        self.logger.info(f"Excluded domains total: {len(exclusion_list)}")
-
-        dom_tld_finished = resume.ResumeState(self.conf, self.stage).load_finished_domains()
-        self.logger.info(f"Tot already Finished: {len(dom_tld_finished)}")
-
-        queue_out_handler = cls_queue_out.QueueOut(
-            self.conf, 
-            self.shared_fetch_controller, 
-            self.shared_totpages_controller, 
-            dom_tld_finished, 
-            exclusion_list, 
-            self.shared_qout)
-        queue_out_handler.fullfill(self.stage)
-        
-        self.logger.info(f"Loaded {self.seen_filter.bloom_len()} in seen_filter")
-
-        self._activate_seleniumbase()
-        self._start_threads()
-        self._start_crawlers(exclusion_list, crawl_func)
-
-        unfinished = [x for x, v in self.shared_fetch_controller.items() if v > 0]
-        self.logger.info(f"Unfinished: {unfinished}")
-
-        self._shutdown()
-        self.logger.info(f"*** Done {self.shared_counter.value} PAGES")
-        return True
 
     def _start_threads(self):
         self.logger.debug("Starting queue input thread...")
@@ -137,6 +132,16 @@ class BaseCrawlController:
             proc.daemon = True
             proc.start()
 
+
+        # Now start a lightweight thread for dynamic domains
+        self.logger.debug("Starting dynamic domain enqueue thread (threading)...")
+        self.enqueue_thread = threading.Thread(
+            target=self.enqueue_new_domains,
+            args=(self.queue_out_handler,),
+            daemon=True
+        )
+        self.enqueue_thread.start()
+
     def _start_crawlers(self, exclusion_list, crawl_func):
         self.logger.debug("Initializing crawler pools...")
         procs = list(range(0, self.conf['POOLS']))
@@ -158,11 +163,56 @@ class BaseCrawlController:
                     repeat(self.shared_qout)
                 ))
 
+    def run(self, crawl_func):
+        self.logger.info("### BEGINNING CRAWLER")
+
+        try:
+            exclusion_list = efiles.load_domains_exclusion_list(self.conf, protocol=False)
+            self.logger.info(f"Excluded domains total: {len(exclusion_list)}")
+
+            dom_tld_finished = resume.ResumeState(self.conf, self.stage).load_finished_domains()
+            self.logger.info(f"Tot already Finished: {len(dom_tld_finished)}")
+
+            self.queue_out_handler = cls_queue_out.QueueOut(
+                self.conf, 
+                self.shared_fetch_controller, 
+                self.shared_totpages_controller, 
+                dom_tld_finished, 
+                exclusion_list, 
+                self.shared_qout)
+            self.queue_out_handler.fullfill(self.stage)
+            
+            self.logger.info(f"Loaded {self.seen_filter.bloom_len()} in seen_filter")
+
+            self._activate_seleniumbase()
+            self._start_threads()
+            self._start_crawlers(exclusion_list, crawl_func)
+
+        except KeyboardInterrupt:
+            self.logger.warning("KeyboardInterrupt received. Shutting down...")
+
+        finally:
+            unfinished = [x for x, v in self.shared_fetch_controller.items() if v > 0]
+            self.logger.info(f"Unfinished: {unfinished}")
+            self._shutdown()
+            self.logger.info(f"*** Done {self.shared_counter.value} PAGES")
+            return True
+
     def _shutdown(self):
-        self.logger.info("Shutting down...")
+        self.logger.info("Shutting down…")
+        # signal child processes to stop
         self.shared_script_controller["running_state"] = 0
+
+        # join child processes
         for proc in self.processes:
             proc.join()
+
+        # now join the enqueue thread
+        if self.enqueue_thread is not None:
+            self.enqueue_thread.join()
+
+        self.logger.info("All threads and processes stopped.")
+
 
 class CrawlController(BaseCrawlController):
     def __init__(self, manager, conf, shared_counter):
@@ -181,3 +231,15 @@ class SpiderController(BaseCrawlController):
 
     def run(self):
         return super().run(stage_spider.spider)
+
+
+class UnifiedController(BaseCrawlController):
+    def __init__(self, manager, conf, shared_counter):
+        super().__init__(
+            manager, conf, shared_counter, "stage_unified_ctrl.log")
+        self.shared_script_controller.update({'landings': 0, 'robots': 0, 'sitemaps': 0, 'internal_urls': 0 })
+
+    def run(self):
+        from ispider_core.crawlers import stage_unified
+        return super().run(stage_unified.unified)
+

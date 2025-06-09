@@ -47,6 +47,83 @@ class HtmlParser:
 
     def _clean_href(self, dom_tld, sub_dom_tld, x):
         """Cleans and normalizes a given href URL."""
+        x = x.strip()
+
+        # Skip fragments, home, javascript, tel, mailto, empty
+        if x.startswith("#"):
+            raise Exception(f"SKIP001: Hash url: {x}")
+        if x.startswith("//"):
+            x = x.lstrip("/")
+        if x == "/":
+            raise Exception(f"SKIP002: Home url: {x}")
+        if any(x.lower().startswith(p) for p in ['javascript:', 'tel:', 'mailto:']):
+            raise Exception(f"SKIP003: Invalid protocol: {x}")
+        if not re.search(r'[0-9a-zA-Z]', x):
+            raise Exception(f"SKIP004: Invalid url: {x}")
+
+        # Normalize relative URLs
+        if x.startswith(("./", "../")):
+            x = urllib.parse.urljoin(f"https://{sub_dom_tld}/", x)
+        elif x.startswith(("/", "?")):
+            x = f"{sub_dom_tld}{x}"
+        elif x.startswith("http"):
+            x = re.sub(r'^https?://', '', x)
+        if "/" not in x:
+            x = f"{sub_dom_tld}/{x}"
+        if "/" in x and "." not in x.split("/")[0]:
+            x = f"{sub_dom_tld}/{x}"
+        if re.search(r'[a-z0-9]\.(php|html)\?.*=', x):
+            x = f"{sub_dom_tld}/{x}"
+
+        # Parse and validate
+        try:
+            parsed = urllib.parse.urlparse(f"//{x}")
+            href_dom = parsed.netloc
+            href_path = parsed.path.strip("/")
+            href_query = parsed.query
+        except Exception as e:
+            raise Exception(f"SKIP005: Href urlparse error: {e}")
+
+        # Domain parts and TLD check
+        sub, dom, tld, _ = domains.get_url_parts(href_dom)
+        href_dom_tld = f"{dom}.{tld}"
+
+        # Decode path
+        if "%" in href_path:
+            href_path = urllib.parse.unquote(href_path)
+
+        # Check for excluded extensions
+        if match := re.search(r'\.([a-z0-9]{3,4})$', href_path.lower()):
+            ext = match.group(1)
+            if ext in self.conf['EXCLUDED_EXTENSIONS']:
+                raise Exception(f"SKIP006: Excluded Extension: {ext}")
+
+        # Skip if query includes jpg assignment
+        if re.search(r'=[a-zA-Z0-9_]+\.jpg', href_query.lower()):
+            raise Exception("SKIP007: Jpg in query")
+
+        # Reconstruct clean href
+        if re.search(r'[a-zA-Z0-9]', sub) and sub != "www":
+            href_cleaned = f"{sub}.{dom}.{tld}/{href_path}"
+        else:
+            href_cleaned = f"{dom}.{tld}/{href_path}"
+
+        if href_query:
+            href_cleaned += f"?{href_query}"
+
+        # Final checks
+        pattern = rf"(?:www\.)?(?:{re.escape(dom_tld)}|{re.escape(sub_dom_tld)})/?$"
+        if re.search(pattern, href_cleaned):
+            raise Exception(f"SKIP008: Home URL FINAL --> {href_cleaned}")
+
+        if href_dom_tld != dom_tld:
+            raise Exception(f"SKIP009: External Domain: {x}")
+
+        return href_cleaned
+
+
+    def _clean_href_old(self, dom_tld, sub_dom_tld, x):
+        """Cleans and normalizes a given href URL."""
         x0 = x
         x = x.strip()
 
@@ -61,10 +138,8 @@ class HtmlParser:
         if not re.search(r'[0-9a-zA-Z]', x):
             raise Exception("SKIP004: Invalid url: " + str(x))
 
-        if x.startswith("./"):
-            x = x.strip(".")
-        if x.startswith("../"):
-            x = x.replace('../', '')
+        if x.startswith("./") or x.startswith("../"):
+            x = urllib.parse.urljoin(f"https://{sub_dom_tld}/", x)
 
         if x.startswith("/") or x.startswith("?"):
             x = sub_dom_tld + x

@@ -21,23 +21,43 @@ class ISpider:
         self.stage = stage
         self.manager = None
         self.shared_counter = None
+        self.orchestrator = None
+
         self.conf = self._setup_conf(domains, kwargs)
         self.logger = LoggerFactory.create_logger("./logs", "ispider.log", log_level=self.conf['LOG_LEVEL'], stdout_flag=True)
-        
         self._prepare_directories()
         self._download_csv_if_needed()
         
         # self.logger.debug(f"Logger handlers count: {len(self.logger.handlers)}")
 
+    @property
+    def shared_new_domains(self):
+        self.logger.info("Ispider, Adding Domains..")
+        if self.orchestrator:
+            return getattr(self.orchestrator, 'shared_new_domains', None)
+        self.logger.info("No attribute shared_new_domains")
+        return None
+
+    @property
+    def shared_fetch_controller(self):
+        if self.orchestrator:
+            return getattr(self.orchestrator, 'shared_fetch_controller', None)
+        return None
+
 
     def _setup_conf(self, domains, kwargs):
         settings = config.Settings()
         conf = settings.to_dict()
+
+        upper_kwargs = {k.upper(): v for k, v in kwargs.items()}
+
         conf.update({
             'domains': domains,
             'method': self.stage or 'landings',
-            **kwargs  # user passed settings
+            **upper_kwargs  # user passed settings
         })
+
+        print(conf)
 
         base = Path(os.path.expanduser(conf['USER_FOLDER']))
         conf.update({
@@ -83,7 +103,7 @@ class ISpider:
     def run(self):
         """ Run the specified stage or all sequentially """
         self._ensure_manager()
-        orchestrator = Orchestrator(self.conf, self.manager, self.shared_counter)
+        self.orchestrator = Orchestrator(self.conf, self.manager, self.shared_counter)
 
         try:
             self.logger.info(f"Package version: {version('ispider')}")
@@ -95,13 +115,17 @@ class ISpider:
         if self.stage:
             self.logger.info(f"*** Running Stage: {self.stage}")
             self.conf['method'] = self.stage
-            orchestrator.run()
+            self.orchestrator.run()
+
         else:
-            self.logger.info("*** Running All Stages")
-            for stage in ['crawl', 'spider']:
-                self.conf['method'] = stage
-                orchestrator.run()
+            self.logger.info("*** Running Unified as default")    
+            self.conf['method'] = 'unified'
+            self.orchestrator.run()
+
         return self._fetch_results()
 
     def _fetch_results(self):
         return {}
+
+    def shutdown(self):
+        self.manager.shutdown()

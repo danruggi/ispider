@@ -34,6 +34,7 @@ def create_parser():
 
     parser_crawl = subparsers.add_parser('crawl', help='Crawl stage: fetch landings, robots, sitemaps')
     parser_spider = subparsers.add_parser('spider', help='Spider stage: follow links to max depth')
+    parser_spider = subparsers.add_parser('unified', help='Spider stage: follow links to max depth')
 
     return parser
 

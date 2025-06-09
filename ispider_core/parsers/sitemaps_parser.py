@@ -1,9 +1,9 @@
 import re
 import gzip
+import tldextract
 
 from xml.etree.ElementTree import ElementTree, fromstring
 from urllib.parse import urlparse
-
 
 class SitemapParser:
     def __init__(self, logger, conf):
@@ -74,15 +74,11 @@ class SitemapParser:
         return list(self._extract_links_from_xml(sm_data, 'url'))
 
     def _filter_same_domain(self, urls, dom_tld):
-        """Filter out links that do not belong to the same domain."""
         valid_urls = set()
         for url in urls:
             parsed = urlparse(url)
-            domain_parts = parsed.netloc.split(".")
-            if len(domain_parts) >= 2:
-                sm_dom_tld = ".".join(domain_parts[-2:])
-                if sm_dom_tld == dom_tld:
-                    valid_urls.add(url)
-                # else:
-                #     self.logger.warning(f"Sitemap found in different domain: {dom_tld} --> {url}")
+            extracted = tldextract.extract(parsed.netloc)
+            url_tld = f"{extracted.domain}.{extracted.suffix}"
+            if url_tld == dom_tld:
+                valid_urls.add(url)
         return list(valid_urls)
