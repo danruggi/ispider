@@ -26,7 +26,7 @@ class ResumeState:
     def load_finished_domains(self):
         """Loads the finished domains from a stage-specific pickle file."""
         dom_tld_finished = set()
-        pickle_file = Path(self.conf['path_data']) / f"{self.stage}_shared_fetch_controller.pkl"
+        pickle_file = Path(self.conf['path_data']) / f"{self.stage}_dom_stats_finished.pkl"
 
         try:
             self.logger.debug(f"Loading finished domains from {pickle_file}")

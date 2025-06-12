@@ -19,7 +19,7 @@ if __name__ == '__main__':
     df = df.sample(n=10, random_state=42)  # random_state for reproducibility
 
     # doms = df['dom_tld'].tolist()
-    doms = ['happyescorts.com']
+    doms = ['deskydoo.com']
     ISpider(domains=doms, stage="unified", **config_overrides).run()
     
     

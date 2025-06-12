@@ -22,9 +22,9 @@ class Orchestrator:
         return None
 
     @property
-    def shared_fetch_controller(self):
-        if self.controller and hasattr(self.controller, 'shared_fetch_controller'):
-            return self.controller.shared_fetch_controller
+    def shared_dom_stats(self):
+        if self.controller and hasattr(self.controller, 'shared_dom_stats'):
+            return self.controller.shared_dom_stats
         return None
 
     def run(self):

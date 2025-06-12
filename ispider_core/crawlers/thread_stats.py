@@ -9,20 +9,11 @@ from datetime import datetime
 
 from ispider_core.utils.logger import LoggerFactory
 
-def debug_print_fetch_controller(shared_fetch_controller):
-    # Convert to a regular dict and make sure nested proxies (if any) are also plain dicts
-    normal_dict = {
-        k: dict(v) if hasattr(v, 'items') else v
-        for k, v in dict(shared_fetch_controller).items()
-    }
-
-    print(json.dumps(normal_dict, indent=3))
-
 
 def stats_srv(
-    shared_script_controller, shared_fetch_controller, 
+    shared_script_controller, shared_dom_stats,
     seen_filter, conf,
-    shared_qout, shared_qin):
+    shared_qin, shared_qout):
     '''
     shared_script_controller: [Landing, Robots, Sitemaps, Bytes Downloaded]
     '''
@@ -37,18 +28,15 @@ def stats_srv(
     speeds = deque(maxlen=10)
     req_count = 0
 
-    count_all_domains = len(shared_fetch_controller)
-
     try:
         while True:
             time.sleep(5)
 
             tdiff = time.time() - t0
-            if tdiff <= 30:
+            if tdiff <= 15:
                 continue
 
             t0 = time.time()
-
 
             # Running State
             if shared_script_controller['running_state'] == 0:
@@ -79,13 +67,13 @@ def stats_srv(
                 )
 
 
-                count_finished_domains = sum(1 for value in shared_fetch_controller.values() if value.get('missing_pages', 0) == 0)
+                count_all_domains = shared_dom_stats.get_tot_domains()
+                count_finished_domains = shared_dom_stats.count_by(lambda v: v == 0)
                 count_unfinished_domains = count_all_domains - count_finished_domains
-                count_bigger_domains = sum(1 for value in shared_fetch_controller.values() if value.get('missing_pages', 0) > 100)
-                sorted_fetch_controller = {k: v for k, v in sorted(shared_fetch_controller.items(), key=lambda item: item[1].get('missing_pages', 0), reverse=True) }
-                bl = [f"{k}:{v['missing_pages']}" for k, v in list(sorted_fetch_controller.items())][:20]
-                sl = [f"{k}:{v['missing_pages']}" for k, v in list(sorted_fetch_controller.items()) if v.get('missing_pages', 0) > 0][-5:]
-
+                count_bigger_domains = shared_dom_stats.count_by(lambda v: v > 100)
+                sorted_dom_missing = shared_dom_stats.get_sorted_missing(reverse=True)
+                bl = [f"{k}:{v}" for k, v in list(sorted_dom_missing.items())[:20]]
+                sl = [f"{k}:{v}" for k, v in list(sorted_dom_missing.items()) if v > 0][-5:]
 
                 logger.info("******************* STATS ***********************")
                 logger.info(f"#### SPEED: {speed_mb} Kb/s")
@@ -103,7 +91,6 @@ def stats_srv(
                 logger.info(f"B5: {sl}")
 
                 logger.info(f"Seen Filter len: {seen_filter.bloom_len()}")
-                debug_print_fetch_controller(shared_fetch_controller)
 
             except Exception as e:
                 logger.warning(f"Stats Not available at the moment: {e}")

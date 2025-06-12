@@ -5,12 +5,11 @@ from queue import Empty  # Import to catch queue exceptions
 
 from ispider_core.utils import queues
 from ispider_core.utils import ifiles
-from ispider_core.utils import controllers
 
 from ispider_core.utils.logger import LoggerFactory
 
 def queue_in_srv(
-    script_controller, fetch_controller, lock, 
+    script_controller, dom_stats, 
     seen_filter, conf, qin, qout):
     
     logger = LoggerFactory.create_logger("./logs", "queue_in.log", log_level=conf['LOG_LEVEL'], stdout_flag=True)
@@ -39,10 +38,11 @@ def queue_in_srv(
             if not qout.empty():
                 try:
                     reqA = qout.get(timeout=1)
+
                     #--------------------
                     # Verify if in seen
                     if seen_filter.req_in_seen(reqA):
-                        controllers.reduce_fetch_controller(fetch_controller, lock, reqA[2])
+                        dom_stats.reduce_missing(reqA[2])
                         continue
                     #--------------------
                 except Empty:

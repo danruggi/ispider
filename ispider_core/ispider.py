@@ -38,9 +38,9 @@ class ISpider:
         return None
 
     @property
-    def shared_fetch_controller(self):
+    def shared_dom_stats(self):
         if self.orchestrator:
-            return getattr(self.orchestrator, 'shared_fetch_controller', None)
+            return getattr(self.orchestrator, 'shared_dom_stats', None)
         return None
 
     def _setup_conf(self, domains, kwargs):

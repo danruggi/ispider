@@ -4,22 +4,20 @@ import re
 from ispider_core.utils import domains
 from ispider_core.parsers.sitemaps_parser import SitemapParser
 
-def robots_sitemaps_crawl(c, lock, fetch_controller, engine, conf, logger, qout):
+def robots_sitemaps_crawl(c, dom_stats, engine, conf, logger, qout):
     rd = c['request_discriminator']
     status_code = c['status_code']
     depth = c['depth']
     dom_tld = c['dom_tld']
     if status_code != 200:
         # If no robot, try with generic sitemap
-        if rd == 'robots':
-            if 'sitemaps' not in conf['CRAWL_METHODS']:
-                return
-            sitemap_url = domains.add_https_protocol(dom_tld)+"/sitemap.xml"
-            with lock:
-                fetch_controller[dom_tld]['missing_pages'] += 1
-                fetch_controller[dom_tld]['tot_pages'] += 1
-            qout.put((sitemap_url, 'sitemap', dom_tld, 0, 1, engine))
-
+        if rd != 'robots':
+            return
+        if 'sitemaps' not in conf['CRAWL_METHODS']:
+            return
+        sitemap_url = domains.add_https_protocol(dom_tld)+"/sitemap.xml"
+        dom_stats.add_missing_total(dom_tld)
+        qout.put((sitemap_url, 'sitemap', dom_tld, 0, 1, engine))
         return
 
     if c['content'] is None:
@@ -33,9 +31,7 @@ def robots_sitemaps_crawl(c, lock, fetch_controller, engine, conf, logger, qout)
         protfurltld = domains.add_https_protocol(dom_tld);
         robots_url = protfurltld+"/robots.txt"
         
-        with lock:
-            fetch_controller[dom_tld]['missing_pages'] += 1
-            fetch_controller[dom_tld]['tot_pages'] += 1
+        dom_stats.add_missing_total(dom_tld)
         qout.put((robots_url, 'robots', dom_tld, 0, 1, engine))
 
     # Add sitemaps from robot file 
@@ -51,12 +47,9 @@ def robots_sitemaps_crawl(c, lock, fetch_controller, engine, conf, logger, qout)
 
                     if sitemap_url in robots_sitemaps:
                         continue
+                        
                     robots_sitemaps.add(sitemap_url)
-
-                    with lock:
-                        fetch_controller[dom_tld]['missing_pages'] += 1
-                        fetch_controller[dom_tld]['tot_pages'] += 1
-
+                    dom_stats.add_missing_total(dom_tld)
                     qout.put((sitemap_url, 'sitemap', dom_tld, 0, 1, engine))
                     c['has_sitemap'] = True;
         except:
@@ -70,8 +63,5 @@ def robots_sitemaps_crawl(c, lock, fetch_controller, engine, conf, logger, qout)
         for sitemap_url in sm_urls:
             if depth > conf['SITEMAPS_MAX_DEPTH']:
                 continue
-            with lock:
-                fetch_controller[dom_tld]['missing_pages'] += 1
-                fetch_controller[dom_tld]['tot_pages'] += 1
-
+            dom_stats.add_missing_total(dom_tld)
             qout.put((sitemap_url, 'sitemap', dom_tld, 0, depth+1, engine))

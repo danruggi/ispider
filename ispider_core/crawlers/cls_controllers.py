@@ -4,6 +4,7 @@ from ispider_core.utils import resume
 
 from ispider_core.crawlers import cls_queue_out
 from ispider_core.crawlers import cls_seen_filter
+from ispider_core.crawlers import cls_domain_stats
 from ispider_core.crawlers import thread_queue_in
 from ispider_core.crawlers import thread_stats
 from ispider_core.crawlers import thread_save_finished
@@ -46,35 +47,18 @@ class BaseCrawlController:
         self.shared_new_domains = self.manager.list()
         
         # Stats
-        self.shared_script_controller = self.manager.dict({
-            'speedb': [], 
-            'speedu': [], 
-            'running_state': 1, 
-            'bytes': 0, 
-            'tot_counter': 0,
-            'landings': 0, 
-            'robots': 0, 
-            'sitemaps': 0,
-            'internal_urls': 0
-            })     
+        self.shared_script_controller = self.manager.dict({'speedb': [], 'speedu': [], 'running_state': 1, 'bytes': 0, 'tot_counter': 0, 'landings': 0, 'robots': 0, 'sitemaps': 0, 'internal_urls': 0 })
 
         # Informations by domain
-        self.shared_fetch_controller = self.manager.dict()
-        self.shared_fetch_controller_inner = {
-            'tot_pages': 0,
-            'got_pages': 0,
-            'missing_pages': 0,
-            'bytes': 0,
-            'finished': False,
-            'current_engine': None,
-            'last_fetch': None,
-            'https': True,
-        }
-
+        self.shared_qstats = self.manager.Queue()
+        self.shared_dom_stats = cls_domain_stats.SharedDomainStats(manager, self.shared_lock, self.shared_qstats)
+        
         self.lifo_manager = self._get_manager()
         self.queue_out_handler = None
+
         self.shared_qin = self.manager.Queue(maxsize=conf['QUEUE_MAX_SIZE'])
         self.shared_qout = self.lifo_manager.LifoQueue()
+
 
         self.processes = []
 
@@ -89,6 +73,14 @@ class BaseCrawlController:
                 queue_out_handler.fullfill(self.stage)
             time.sleep(3)
         self.logger.info("Closing enqueue new domains")
+
+    def flush_stats_loop(self):
+        while True:
+            try:
+                self.shared_dom_stats.flush_qstats()
+            except Exception as e:
+                self.logger.warning(f"Failed to flush stats: {e}")
+            time.sleep(1)  # Flush every 1 second, adjust as needed
 
     def _get_manager_seen_filter(self):
         m = SeenFilterManager()
@@ -112,8 +104,7 @@ class BaseCrawlController:
             target=thread_queue_in.queue_in_srv, 
             args=(
                 self.shared_script_controller, 
-                self.shared_fetch_controller, 
-                self.shared_lock, 
+                self.shared_dom_stats, 
                 self.seen_filter, 
                 self.conf,
                 self.shared_qin, 
@@ -125,11 +116,11 @@ class BaseCrawlController:
             target=thread_stats.stats_srv, 
             args=(
                 self.shared_script_controller, 
-                self.shared_fetch_controller, 
+                self.shared_dom_stats, 
                 self.seen_filter,
                 self.conf,
-                self.shared_qout, 
                 self.shared_qin, 
+                self.shared_qout, 
             )))
 
         self.logger.debug("Starting save finished thread...")
@@ -137,7 +128,7 @@ class BaseCrawlController:
             target=thread_save_finished.save_finished, 
             args=(
                 self.shared_script_controller, 
-                self.shared_fetch_controller, 
+                self.shared_dom_stats, 
                 self.shared_lock, 
                 self.conf
             )))
@@ -156,6 +147,14 @@ class BaseCrawlController:
         )
         self.enqueue_thread.start()
 
+        # Start stats flushing thread
+        self.logger.debug("Starting stats flushing thread (threading)...")
+        self.flush_thread = threading.Thread(
+            target=self.flush_stats_loop,
+            daemon=True
+        )
+        self.flush_thread.start()
+
     def _start_crawlers(self, exclusion_list, crawl_func):
         self.logger.debug("Initializing crawler pools...")
         procs = list(range(0, self.conf['POOLS']))
@@ -170,7 +169,7 @@ class BaseCrawlController:
                     repeat(self.shared_lock),
                     repeat(self.shared_lock_driver),
                     repeat(self.shared_script_controller),
-                    repeat(self.shared_fetch_controller),
+                    repeat(self.shared_dom_stats),
                     repeat(self.shared_qin),
                     repeat(self.shared_qout)
                 ))
@@ -178,46 +177,46 @@ class BaseCrawlController:
     def run(self, crawl_func):
         self.logger.info("### BEGINNING CRAWLER")
 
-        # try:
-        exclusion_list = efiles.load_domains_exclusion_list(self.conf, protocol=False)
-        self.logger.info(f"Excluded domains total: {len(exclusion_list)}")
+        try:
+            exclusion_list = efiles.load_domains_exclusion_list(self.conf, protocol=False)
+            self.logger.info(f"Excluded domains total: {len(exclusion_list)}")
 
-        dom_tld_finished = resume.ResumeState(self.conf, self.stage).load_finished_domains()
-        self.logger.info(f"Tot already Finished: {len(dom_tld_finished)}")
+            dom_tld_finished = resume.ResumeState(self.conf, self.stage).load_finished_domains()
+            self.logger.info(f"Tot already Finished: {len(dom_tld_finished)}")
 
-        self.queue_out_handler = cls_queue_out.QueueOut(
-            self.conf, 
-            self.manager,
-            self.shared_fetch_controller, 
-            self.shared_fetch_controller_inner,
-            dom_tld_finished, 
-            exclusion_list, 
-            self.shared_qout)
-        self.queue_out_handler.fullfill(self.stage)
-        
-        self.logger.info(f"Loaded {self.seen_filter.bloom_len()} in seen_filter")
+            self.queue_out_handler = cls_queue_out.QueueOut(
+                self.conf, 
+                self.shared_dom_stats, 
+                dom_tld_finished, 
+                exclusion_list, 
+                self.logger,
+                self.shared_qout
+                )
+            self.queue_out_handler.fullfill(self.stage)
+            
+            self.logger.info(f"Loaded {self.seen_filter.bloom_len()} in seen_filter")
 
-        self.logger.info("Activating seleniumbase")
-        self._activate_seleniumbase()
+            self.logger.info("Activating seleniumbase")
+            self._activate_seleniumbase()
 
-        self.logger.info("Starting threads")
-        self._start_threads()
+            self.logger.info("Starting threads")
+            self._start_threads()
 
-        self.logger.info("Starting crawlers")
-        self._start_crawlers(exclusion_list, crawl_func)
+            self.logger.info("Starting crawlers")
+            self._start_crawlers(exclusion_list, crawl_func)
 
-        # except KeyboardInterrupt:
-        #     self.logger.warning("KeyboardInterrupt received. Shutting down...")
+        except KeyboardInterrupt:
+            self.logger.warning("KeyboardInterrupt received. Shutting down...")
 
-        # except Exception as e:
-        #     self.logger.error(e)
+        except Exception as e:
+            self.logger.error(e)
 
-        # finally:
-        #     unfinished = [x for x, v in self.shared_fetch_controller.items() if v.get("missing_pages", 0) > 0]
-        #     self.logger.info(f"Unfinished: {unfinished}")
-        #     self.logger.info(f"*** Done {self.shared_script_controller['tot_counter']} PAGES")
-        #     self._shutdown()
-        #     return True
+        finally:
+            unfinished = self.shared_dom_stats.get_unfinished_domains()
+            self.logger.info(f"Unfinished: {unfinished}")
+            self.logger.info(f"*** Done {self.shared_script_controller['tot_counter']} PAGES")
+            self._shutdown()
+            return True
 
     def _shutdown(self):
         self.logger.info("Shutting down…")

@@ -12,7 +12,6 @@ from ispider_core.crawlers import http_retries
 from ispider_core.crawlers import http_filters
 
 from ispider_core.utils import headers
-from ispider_core.utils import controllers
 from ispider_core.utils import ifiles
 
 from ispider_core.utils.logger import LoggerFactory
@@ -22,7 +21,7 @@ from ispider_core.parsers.html_parser import HtmlParser
 
 def call_and_manage_resps(
     reqAL, mod, lock, lock_driver, exclusion_list, seen_filter,
-    fetch_controller, script_controller, conf, logger, hdrs, qout):
+    dom_stats, script_controller, conf, logger, hdrs, qout):
 
     proxy = None
     to = {}
@@ -55,7 +54,7 @@ def call_and_manage_resps(
             pass
 
         # Crawl FILTERS
-        if dom_tld not in fetch_controller:
+        if dom_tld not in dom_stats.dom_missing:
             logger.warning(f"{dom_tld} not in fetch controller")
             continue
 
@@ -63,7 +62,7 @@ def call_and_manage_resps(
             http_filters.filter_on_resp(resp)
         except Exception as e:
             logger.error(e)
-            controllers.reduce_fetch_controller(fetch_controller, lock, dom_tld)
+            dom_stats.reduce_missing(dom_tld)
             continue
 
         # CHECK IF FILE EXISTS
@@ -71,7 +70,7 @@ def call_and_manage_resps(
             http_filters.filter_file_exists(resp, conf)
         except Exception as e:
             logger.error(e)
-            controllers.reduce_fetch_controller(fetch_controller, lock, dom_tld)
+            dom_stats.reduce_missing(dom_tld)
             continue
 
         # **********************
@@ -98,7 +97,7 @@ def call_and_manage_resps(
             ]
 
             with lock:
-                current_total = fetch_controller[dom_tld]['tot_pages']
+                current_total = dom_stats.get_total_pages(dom_tld)
             
                 remaining = conf['MAX_PAGES_POR_DOMAIN'] - current_total
                 if remaining <= 0:
@@ -106,8 +105,7 @@ def call_and_manage_resps(
                 elif len(links) > remaining:
                     links = links[:remaining]  # Limit to remaining space
 
-                fetch_controller[dom_tld]['missing_pages'] += len(links)
-                fetch_controller[dom_tld]['tot_pages'] += len(links)
+                dom_stats.add_missing_total(dom_tld)
                 
                 for link in links:
                     qout.put((link, 'internal_url', dom_tld, 0, depth+1, current_engine))
@@ -119,7 +117,7 @@ def call_and_manage_resps(
             logger.error(e)
 
         # Reduce dom count Up Down by 1
-        controllers.reduce_fetch_controller(fetch_controller, lock, dom_tld)
+        dom_stats.reduce_missing(dom_tld)
 
         ### DUMP To file AND Delete content from resp
         # if resp['content'] is not None:
@@ -141,7 +139,7 @@ def call_and_manage_resps(
 
 def spider(mod, conf, exclusion_list, seen_filter,
         lock, lock_driver, 
-        script_controller, fetch_controller, 
+        script_controller, dom_stats, 
         qin, qout
     ):
     
@@ -149,7 +147,7 @@ def spider(mod, conf, exclusion_list, seen_filter,
     ** counter: Integer with general counter
     ** dwn_list [shared_dwn_list]: All downloaded list
     ** script_controller: dict with specific counters for crawling: Landing, Robots, Sitemaps, bytes, priority
-    ** fetch_controller: dom_tld based controller with (UpDownInt, time_last_fetched)
+    ** shared_dom_stats: dom_tld based controller class 
     ** q: shared queue
     '''
     # from libs.dump_files import dumpToFile
@@ -183,14 +181,14 @@ def spider(mod, conf, exclusion_list, seen_filter,
         rd = reqA[1]
         dom_tld = reqA[2]
         if dom_tld in exclusion_list:
-            reduceFetchController(fetch_controller, lock, dom_tld)
+            dom_stats.reduce_dom_missing(dom_tld)
             logger.warning(f"{dom_tld} excluded {url}")
             continue
 
         urls.append(reqA)
         
         if len(urls) >= conf['ASYNC_BLOCK_SIZE'] or qin.qsize() == 0:
-            call_and_manage_resps(urls, mod, lock, lock_driver, exclusion_list, seen_filter, fetch_controller, script_controller, conf, logger, hdrs, qout)
+            call_and_manage_resps(urls, mod, lock, lock_driver, exclusion_list, seen_filter, dom_stats, script_controller, conf, logger, hdrs, qout)
             with lock:
                 script_controller['tot_counter'] += len(urls)
 
@@ -200,7 +198,7 @@ def spider(mod, conf, exclusion_list, seen_filter,
     if len(urls) > 0:
         try:
             logger.info(f"[Worker {mod}] Last call")
-            call_and_manage_resps(urls, mod, lock, lock_driver, exclusion_list, seen_filter, fetch_controller, script_controller, conf, logger, hdrs, qout)
+            call_and_manage_resps(urls, mod, lock, lock_driver, exclusion_list, seen_filter, dom_stats, script_controller, conf, logger, hdrs, qout)
         except Exception as e:
             logger.error(f"ERR000F Last call main call_and_manage_resps error {e}")
 

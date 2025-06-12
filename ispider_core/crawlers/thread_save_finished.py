@@ -6,19 +6,19 @@ from datetime import datetime
 
 from ispider_core.utils.logger import LoggerFactory
 
-def save_finished(script_controller, fetch_controller, lock, conf):
+def save_finished(script_controller, dom_stats, lock, conf):
     logger = LoggerFactory.create_logger("./logs", "save_finished.log", log_level=conf['LOG_LEVEL'], stdout_flag=True)
 
     def save_pickle_file(withLock=True):
         t0 = time.time()
-        finished_domains = [k for k, v in fetch_controller.items() if v.get('missing_pages', 0) == 0]
+        finished_domains = dom_stats.get_finished_domains()
 
-        logger.debug(f"Pickle td got from fetch_controller in {time.time() - t0:.2f} seconds")
+        logger.debug(f"Pickle td got from dom_stats in {time.time() - t0:.2f} seconds")
         logger.debug(f"Pickle set: {len(finished_domains)} as finished")
 
         if finished_domains:
-            fnt = Path(conf['path_data']) / f"{conf['method']}_shared_fetch_controller.pkl.tmp"
-            fn = Path(conf['path_data']) / f"{conf['method']}_shared_fetch_controller.pkl"
+            fnt = Path(conf['path_data']) / f"{conf['method']}_dom_stats_finished.pkl.tmp"
+            fn = Path(conf['path_data']) / f"{conf['method']}_dom_stats_finished.pkl"
 
             # Save to temporary file
             t0 = time.time()

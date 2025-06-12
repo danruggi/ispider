@@ -15,7 +15,6 @@ from ispider_core.crawlers import stage_unified_helpers
 
 from ispider_core.utils.logger import LoggerFactory
 from ispider_core.utils import headers
-from ispider_core.utils import controllers
 from ispider_core.utils import ifiles
 from ispider_core.utils import domains
 
@@ -24,8 +23,8 @@ from ispider_core.parsers.sitemaps_parser import SitemapParser
 
 
 def call_and_manage_resps(
-    reqAL, mod, lock, lock_driver, exclusion_list, seen_filter,
-    fetch_controller, script_controller, conf, logger, hdrs, qout):
+    reqAL, mod, lock_driver, exclusion_list, seen_filter,
+    dom_stats, script_controller, conf, logger, hdrs, qout):
 
     html_parser = HtmlParser(logger, conf)
     
@@ -48,18 +47,21 @@ def call_and_manage_resps(
         # SPEED CALC for STATS
         try:
             script_controller['bytes'] += resp['num_bytes_downloaded']
-            script_controller[dom_tld]['bytes'] += resp['num_bytes_downloaded']
-        except:
+            dom_stats.qstats.put({"dom_tld": dom_tld, "key": "bytes", "value": resp['num_bytes_downloaded'], "op": "sum"})
+        except Exception as e:
+            logger.warning(e)
             pass
 
         # Crawl FILTERS
-        if dom_tld not in fetch_controller:
+        if dom_tld not in dom_stats.dom_missing:
+            logger.warning(f"{dom_tld} not in fetch controller")
             continue
 
         try:
             http_filters.filter_on_resp(resp)
         except Exception as e:
-            controllers.reduce_fetch_controller(fetch_controller, lock, dom_tld)
+            logger.warning(f"{e}")
+            dom_stats.reduce_missing(dom_tld)
             continue
 
         ## CHECK IF FILE EXISTS
@@ -67,7 +69,7 @@ def call_and_manage_resps(
             http_filters.filter_file_exists(resp, conf)
         except Exception as e:
             logger.error(e)
-            controllers.reduce_fetch_controller(fetch_controller, lock, dom_tld)
+            dom_stats.reduce_missing(dom_tld)
             continue
 
         # **********************
@@ -82,11 +84,11 @@ def call_and_manage_resps(
         try:
             # Handle crawl stage actions (robots, sitemaps)
             stage_crawl_helpers.robots_sitemaps_crawl(
-                resp, lock, fetch_controller, current_engine, conf, logger, qout)
+                resp, dom_stats, current_engine, conf, logger, qout)
         
             # Extract links from sitemaps and internal_urls
             stage_unified_helpers.unified_link_extraction(
-                resp, lock, fetch_controller, qout, conf, logger, current_engine)
+                resp, dom_stats, qout, conf, logger, current_engine)
 
         except Exception as e:
             logger.error(f"Unified processing error for {url}: {e}")
@@ -99,7 +101,7 @@ def call_and_manage_resps(
             logger.error(e)
 
         # Reduce dom count Up Down by 1
-        controllers.reduce_fetch_controller(fetch_controller, lock, dom_tld)
+        dom_stats.reduce_missing(dom_tld)
 
         ### DUMP To file AND Delete content from resp
         resp['page_size'] = len(resp['content']) if resp['content'] is not None else 0
@@ -121,7 +123,7 @@ def call_and_manage_resps(
 
 def unified(mod, conf, exclusion_list, seen_filter, 
         lock, lock_driver, 
-        script_controller, fetch_controller,
+        script_controller, dom_stats,
         qin, qout):
     
     '''
@@ -132,7 +134,7 @@ def unified(mod, conf, exclusion_list, seen_filter,
     
     ** counter: Integer with general counter
     ** script_controller: dict with specific counters
-    ** fetch_controller: dom_tld based controller
+    ** dom_missing: dom_tld based controller
     ** qin: input queue
     ** qout: output queue
     '''
@@ -170,7 +172,7 @@ def unified(mod, conf, exclusion_list, seen_filter,
             dom_tld = reqA[2]
             
             if dom_tld in exclusion_list:
-                controllers.reduce_fetch_controller(fetch_controller, lock, dom_tld)
+                dom_stats.reduce_missing(dom_tld)
                 logger.warning(f"{dom_tld} excluded {url}")
                 continue
                 
@@ -178,8 +180,8 @@ def unified(mod, conf, exclusion_list, seen_filter,
             
             if len(urls) >= conf['ASYNC_BLOCK_SIZE'] or qin.qsize() == 0:
                 call_and_manage_resps(
-                    urls, mod, lock, lock_driver, exclusion_list, seen_filter, 
-                    fetch_controller, script_controller, 
+                    urls, mod, lock_driver, exclusion_list, seen_filter, 
+                    dom_stats, script_controller, 
                     conf, logger, hdrs, qout)
                 
                 with lock:
