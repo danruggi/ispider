@@ -11,7 +11,7 @@ def save_finished(script_controller, fetch_controller, lock, conf):
 
     def save_pickle_file(withLock=True):
         t0 = time.time()
-        finished_domains = [k for k, v in fetch_controller.items() if v == 0]
+        finished_domains = [k for k, v in fetch_controller.items() if v.get('missing_pages', 0) == 0]
 
         logger.debug(f"Pickle td got from fetch_controller in {time.time() - t0:.2f} seconds")
         logger.debug(f"Pickle set: {len(finished_domains)} as finished")

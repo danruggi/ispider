@@ -28,15 +28,13 @@ SeenFilterManager.register('SeenFilter', cls_seen_filter.SeenFilter)
 
 
 class BaseCrawlController:
-    def __init__(self, manager, conf, shared_counter, log_file):
+    def __init__(self, manager, conf, log_file):
         self.manager = manager
         self.conf = conf
-        self.shared_counter = shared_counter
         self.stage = conf['method']  # Reflect the stage
         self.logger = LoggerFactory.create_logger("./logs", log_file, log_level=conf['LOG_LEVEL'], stdout_flag=True)
         
-        self.lifo_manager = self._get_manager()
-
+        # Locks
         self.shared_lock = self.manager.Lock()
         self.shared_lock_driver = self.manager.Lock()
         self.shared_lock_seen_filter = self.manager.Lock()
@@ -47,21 +45,38 @@ class BaseCrawlController:
         self.enqueue_thread = None
         self.shared_new_domains = self.manager.list()
         
+        # Stats
+        self.shared_script_controller = self.manager.dict({
+            'speedb': [], 
+            'speedu': [], 
+            'running_state': 1, 
+            'bytes': 0, 
+            'tot_counter': 0,
+            'landings': 0, 
+            'robots': 0, 
+            'sitemaps': 0,
+            'internal_urls': 0
+            })     
+
+        # Informations by domain
+        self.shared_fetch_controller = self.manager.dict()
+        self.shared_fetch_controller_inner = {
+            'tot_pages': 0,
+            'got_pages': 0,
+            'missing_pages': 0,
+            'bytes': 0,
+            'finished': False,
+            'current_engine': None,
+            'last_fetch': None,
+            'https': True,
+        }
+
+        self.lifo_manager = self._get_manager()
         self.queue_out_handler = None
-        self.shared_script_controller = self.manager.dict({'speedb': [], 'speedu': [], 'running_state': 1, 'bytes': 0})  # Stats
-        self.shared_fetch_controller = self.manager.dict()          # Increase and decrease page count por domain
-        self.shared_totpages_controller = self.manager.dict()      # Increase page count por domain
         self.shared_qin = self.manager.Queue(maxsize=conf['QUEUE_MAX_SIZE'])
         self.shared_qout = self.lifo_manager.LifoQueue()
-        self.processes = []
 
-    # @property
-    # def shared_fetch_controller(self):
-    #     return self.shared_fetch_controller
-    
-    # @property 
-    # def shared_qin(self):
-    #     return self.shared_qin
+        self.processes = []
 
     def enqueue_new_domains(self, queue_out_handler):
         while self.shared_script_controller['running_state']:  # Controlled shutdown
@@ -109,7 +124,6 @@ class BaseCrawlController:
         self.processes.append(mp.Process(
             target=thread_stats.stats_srv, 
             args=(
-                self.shared_counter, 
                 self.shared_script_controller, 
                 self.shared_fetch_controller, 
                 self.seen_filter,
@@ -153,12 +167,10 @@ class BaseCrawlController:
                     repeat(self.conf),
                     repeat(exclusion_list),
                     repeat(self.seen_filter),
-                    repeat(self.shared_counter),
                     repeat(self.shared_lock),
                     repeat(self.shared_lock_driver),
                     repeat(self.shared_script_controller),
                     repeat(self.shared_fetch_controller),
-                    repeat(self.shared_totpages_controller),
                     repeat(self.shared_qin),
                     repeat(self.shared_qout)
                 ))
@@ -166,40 +178,50 @@ class BaseCrawlController:
     def run(self, crawl_func):
         self.logger.info("### BEGINNING CRAWLER")
 
-        try:
-            exclusion_list = efiles.load_domains_exclusion_list(self.conf, protocol=False)
-            self.logger.info(f"Excluded domains total: {len(exclusion_list)}")
+        # try:
+        exclusion_list = efiles.load_domains_exclusion_list(self.conf, protocol=False)
+        self.logger.info(f"Excluded domains total: {len(exclusion_list)}")
 
-            dom_tld_finished = resume.ResumeState(self.conf, self.stage).load_finished_domains()
-            self.logger.info(f"Tot already Finished: {len(dom_tld_finished)}")
+        dom_tld_finished = resume.ResumeState(self.conf, self.stage).load_finished_domains()
+        self.logger.info(f"Tot already Finished: {len(dom_tld_finished)}")
 
-            self.queue_out_handler = cls_queue_out.QueueOut(
-                self.conf, 
-                self.shared_fetch_controller, 
-                self.shared_totpages_controller, 
-                dom_tld_finished, 
-                exclusion_list, 
-                self.shared_qout)
-            self.queue_out_handler.fullfill(self.stage)
-            
-            self.logger.info(f"Loaded {self.seen_filter.bloom_len()} in seen_filter")
+        self.queue_out_handler = cls_queue_out.QueueOut(
+            self.conf, 
+            self.manager,
+            self.shared_fetch_controller, 
+            self.shared_fetch_controller_inner,
+            dom_tld_finished, 
+            exclusion_list, 
+            self.shared_qout)
+        self.queue_out_handler.fullfill(self.stage)
+        
+        self.logger.info(f"Loaded {self.seen_filter.bloom_len()} in seen_filter")
 
-            self._activate_seleniumbase()
-            self._start_threads()
-            self._start_crawlers(exclusion_list, crawl_func)
+        self.logger.info("Activating seleniumbase")
+        self._activate_seleniumbase()
 
-        except KeyboardInterrupt:
-            self.logger.warning("KeyboardInterrupt received. Shutting down...")
+        self.logger.info("Starting threads")
+        self._start_threads()
 
-        finally:
-            unfinished = [x for x, v in self.shared_fetch_controller.items() if v > 0]
-            self.logger.info(f"Unfinished: {unfinished}")
-            self._shutdown()
-            self.logger.info(f"*** Done {self.shared_counter.value} PAGES")
-            return True
+        self.logger.info("Starting crawlers")
+        self._start_crawlers(exclusion_list, crawl_func)
+
+        # except KeyboardInterrupt:
+        #     self.logger.warning("KeyboardInterrupt received. Shutting down...")
+
+        # except Exception as e:
+        #     self.logger.error(e)
+
+        # finally:
+        #     unfinished = [x for x, v in self.shared_fetch_controller.items() if v.get("missing_pages", 0) > 0]
+        #     self.logger.info(f"Unfinished: {unfinished}")
+        #     self.logger.info(f"*** Done {self.shared_script_controller['tot_counter']} PAGES")
+        #     self._shutdown()
+        #     return True
 
     def _shutdown(self):
         self.logger.info("Shutting down…")
+        
         # signal child processes to stop
         self.shared_script_controller["running_state"] = 0
 
@@ -215,29 +237,26 @@ class BaseCrawlController:
 
 
 class CrawlController(BaseCrawlController):
-    def __init__(self, manager, conf, shared_counter):
+    def __init__(self, manager, conf):
         super().__init__(
-            manager, conf, shared_counter, "stage_crawl_ctrl.log")
-        self.shared_script_controller.update({'landings': 0, 'robots': 0, 'sitemaps': 0})
+            manager, conf, "stage_crawl_ctrl.log")
 
     def run(self):
         return super().run(stage_crawl.crawl)
 
 class SpiderController(BaseCrawlController):
-    def __init__(self, manager, conf, shared_counter):
+    def __init__(self, manager, conf):
         super().__init__(
-            manager, conf, shared_counter, "stage_spider_ctrl.log")
-        self.shared_script_controller.update({'internal_urls': 0})
+            manager, conf, "stage_spider_ctrl.log")
 
     def run(self):
         return super().run(stage_spider.spider)
 
 
 class UnifiedController(BaseCrawlController):
-    def __init__(self, manager, conf, shared_counter):
+    def __init__(self, manager, conf):
         super().__init__(
-            manager, conf, shared_counter, "stage_unified_ctrl.log")
-        self.shared_script_controller.update({'landings': 0, 'robots': 0, 'sitemaps': 0, 'internal_urls': 0 })
+            manager, conf, "stage_unified_ctrl.log")
 
     def run(self):
         from ispider_core.crawlers import stage_unified

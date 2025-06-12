@@ -9,8 +9,18 @@ from datetime import datetime
 
 from ispider_core.utils.logger import LoggerFactory
 
+def debug_print_fetch_controller(shared_fetch_controller):
+    # Convert to a regular dict and make sure nested proxies (if any) are also plain dicts
+    normal_dict = {
+        k: dict(v) if hasattr(v, 'items') else v
+        for k, v in dict(shared_fetch_controller).items()
+    }
+
+    print(json.dumps(normal_dict, indent=3))
+
+
 def stats_srv(
-    shared_counter, shared_script_controller, shared_fetch_controller, 
+    shared_script_controller, shared_fetch_controller, 
     seen_filter, conf,
     shared_qout, shared_qin):
     '''
@@ -39,6 +49,7 @@ def stats_srv(
 
             t0 = time.time()
 
+
             # Running State
             if shared_script_controller['running_state'] == 0:
                 logger.info(f"** STATS FINISHED IN: {round((time.time() - x0), 2)} seconds")
@@ -55,8 +66,9 @@ def stats_srv(
                 logger.warning(f"Error updating speeds deque: {e}")
 
             # Get instant requests per minute
-            req_por_min = round((((shared_counter.value - req_count) / tdiff) * 60), 2)
-            req_count = shared_counter.value
+            current_count = shared_script_controller.get('tot_counter', 0)
+            req_per_min = round((((current_count - req_count) / tdiff) * 60), 2)
+            req_count = current_count
 
             if len(speeds) < 2:
                 continue
@@ -66,21 +78,20 @@ def stats_srv(
                     (sum([t[0] for t in list(speeds)[1:]]) / (speeds[-1][1] - speeds[0][1])) / 1024, 2
                 )
 
-                count_finished_domains = sum(1 for value in shared_fetch_controller.values() if value == 0)
-                count_unfinished_domains = count_all_domains - count_finished_domains
-                count_bigger_domains = sum(1 for value in shared_fetch_controller.values() if value > 100)
 
-                sorted_fetch_controller = {
-                    k: v for k, v in sorted(shared_fetch_controller.items(), key=lambda item: item[1], reverse=True)
-                }
-                bl = [f"{k}:{v}" for k, v in list(sorted_fetch_controller.items())][:20]
-                sl = [f"{k}:{v}" for k, v in list(sorted_fetch_controller.items()) if v > 0][-5:]
+                count_finished_domains = sum(1 for value in shared_fetch_controller.values() if value.get('missing_pages', 0) == 0)
+                count_unfinished_domains = count_all_domains - count_finished_domains
+                count_bigger_domains = sum(1 for value in shared_fetch_controller.values() if value.get('missing_pages', 0) > 100)
+                sorted_fetch_controller = {k: v for k, v in sorted(shared_fetch_controller.items(), key=lambda item: item[1].get('missing_pages', 0), reverse=True) }
+                bl = [f"{k}:{v['missing_pages']}" for k, v in list(sorted_fetch_controller.items())][:20]
+                sl = [f"{k}:{v['missing_pages']}" for k, v in list(sorted_fetch_controller.items()) if v.get('missing_pages', 0) > 0][-5:]
+
 
                 logger.info("******************* STATS ***********************")
                 logger.info(f"#### SPEED: {speed_mb} Kb/s")
-                logger.info(f"#### REQ PER MIN: {req_por_min} urls")
+                logger.info(f"#### REQ PER MIN: {req_per_min} urls")
                 logger.info(f"*** [Start at: {start_datetime}]")
-                logger.info(f"*** [Requests: {shared_counter.value}/{int((t0 - start.timestamp()) / 60)}m] "
+                logger.info(f"*** [Requests: {current_count}/{int((t0 - start.timestamp()) / 60)}m] "
                             f"QOUT SIZE: {shared_qout.qsize()} QIN SIZE: {shared_qin.qsize()}")
                 logger.info(f"*** [Finished: {count_finished_domains}/{count_all_domains}] - Incomplete: {count_unfinished_domains} "
                             f"- [More than 100: {count_bigger_domains}]")
@@ -90,7 +101,9 @@ def stats_srv(
                 logger.info(f"Internals: {shared_script_controller.get('internal_urls', 0)}")
                 logger.info(f"T5: {bl}")
                 logger.info(f"B5: {sl}")
+
                 logger.info(f"Seen Filter len: {seen_filter.bloom_len()}")
+                debug_print_fetch_controller(shared_fetch_controller)
 
             except Exception as e:
                 logger.warning(f"Stats Not available at the moment: {e}")

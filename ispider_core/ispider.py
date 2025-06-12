@@ -20,7 +20,6 @@ class ISpider:
         """
         self.stage = stage
         self.manager = None
-        self.shared_counter = None
         self.orchestrator = None
 
         self.conf = self._setup_conf(domains, kwargs)
@@ -44,7 +43,6 @@ class ISpider:
             return getattr(self.orchestrator, 'shared_fetch_controller', None)
         return None
 
-
     def _setup_conf(self, domains, kwargs):
         settings = config.Settings()
         conf = settings.to_dict()
@@ -56,8 +54,6 @@ class ISpider:
             'method': self.stage or 'landings',
             **upper_kwargs  # user passed settings
         })
-
-        print(conf)
 
         base = Path(os.path.expanduser(conf['USER_FOLDER']))
         conf.update({
@@ -97,13 +93,12 @@ class ISpider:
     def _ensure_manager(self):
         if self.manager is None:
             self.manager = multiprocessing.Manager()
-            self.shared_counter = self.manager.Value('i', 0)
 
 
     def run(self):
         """ Run the specified stage or all sequentially """
         self._ensure_manager()
-        self.orchestrator = Orchestrator(self.conf, self.manager, self.shared_counter)
+        self.orchestrator = Orchestrator(self.conf, self.manager)
 
         try:
             self.logger.info(f"Package version: {version('ispider')}")

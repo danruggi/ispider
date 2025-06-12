@@ -105,8 +105,8 @@ def call_and_manage_resps(
             os.replace(dump_fname, back_dump_fname)
 
 def crawl(mod, conf, exclusion_list, seen_filter, 
-        counter, lock, lock_driver, 
-        script_controller, fetch_controller, totpages_controller,
+        lock, lock_driver, 
+        script_controller, fetch_controller,
         qin, qout
     ):
     
@@ -158,10 +158,12 @@ def crawl(mod, conf, exclusion_list, seen_filter,
             continue
         urls.append(reqA)
         
+        fetch_controller[dom_tld]['last_fetch'] = time.time()
+
         if len(urls) >= conf['ASYNC_BLOCK_SIZE'] or qin.qsize() == 0:
             call_and_manage_resps(urls, mod, lock, lock_driver, exclusion_list, seen_filter, fetch_controller, script_controller, conf, logger, hdrs, qout)
             with lock:
-                counter.value += len(urls)
+                script_controller['tot_counter'] += len(urls)
             urls = list()
 
     if len(urls) > 0:

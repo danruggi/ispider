@@ -12,15 +12,16 @@ from ispider_core.parsers.html_parser import HtmlParser
 from ispider_core.parsers.sitemaps_parser import SitemapParser
 
 class QueueOut:
-    def __init__(self, conf, fetch_controller, totpages_controller,dom_tld_finished, exclusion_list, q):
+    def __init__(self, conf, manager, fetch_controller, fetch_controller_inner, dom_tld_finished, exclusion_list, q):
         self.conf = conf
         self.logger = LoggerFactory.create_logger(
                     "./logs", "queue_out.log",
                     log_level=conf['LOG_LEVEL'],
                     stdout_flag=True
                 )
+        self.manager = manager
         self.fetch_controller = fetch_controller
-        self.totpages_controller = totpages_controller
+        self.fetch_controller_inner = fetch_controller_inner
         self.dom_tld_finished = dom_tld_finished
         self.exclusion_list = exclusion_list
         self.tot_finished = 0
@@ -28,8 +29,7 @@ class QueueOut:
         self.q = q
 
     def fullfill_q(self, url, dom_tld, rd, depth=0, engine='httpx'):
-        self.fetch_controller[dom_tld] += 1
-        self.totpages_controller[dom_tld] += 1
+        self.fetch_controller[dom_tld]['missing_pages'] += 1
         reqA = (url, rd, dom_tld, 0, depth, engine)
         self.q.put(reqA)
 
@@ -119,11 +119,8 @@ class QueueOut:
 
                 if dom_tld in self.fetch_controller:
                     continue
-                self.fetch_controller[dom_tld] = 0
-
-                if dom_tld in self.totpages_controller:
-                    continue
-                self.totpages_controller[dom_tld] = 0
+                self.fetch_controller[dom_tld] = self.manager.dict(self.fetch_controller_inner)
+                self.fetch_controller[dom_tld]['current_engine'] = self.engine_selector.next()
 
                 if not validators.domain(dom_tld):
                     self.logger.info(f"{url} not valid domain")
@@ -132,6 +129,7 @@ class QueueOut:
                 if dom_tld in self.dom_tld_finished:
                     # self.logger.warning(f'{url} already finished')
                     self.tot_finished += 1
+                    self.fetch_controller[dom_tld]['finished'] = True
                     continue
 
                 # self.logger.info(stage)
@@ -150,8 +148,10 @@ class QueueOut:
             tt = round((time.time() - t0), 5)
             self.logger.info(f"Queue Fullfilled, QSize: {self.q.qsize()} [already finished: {str(self.tot_finished)}]")
             self.logger.info(f"Tot Time [s]: {tt} -- Fullfilling rate [url/s]: {round((self.q.qsize() / tt), 2)}")
+
         except Exception as e:
             self.logger.error(f"Stats Unavailable {e}")
+
 
     def get_queue(self):
         return self.q

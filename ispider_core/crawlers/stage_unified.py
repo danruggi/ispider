@@ -25,7 +25,7 @@ from ispider_core.parsers.sitemaps_parser import SitemapParser
 
 def call_and_manage_resps(
     reqAL, mod, lock, lock_driver, exclusion_list, seen_filter,
-    fetch_controller, totpages_controller, script_controller, conf, logger, hdrs, qout):
+    fetch_controller, script_controller, conf, logger, hdrs, qout):
 
     html_parser = HtmlParser(logger, conf)
     
@@ -48,6 +48,7 @@ def call_and_manage_resps(
         # SPEED CALC for STATS
         try:
             script_controller['bytes'] += resp['num_bytes_downloaded']
+            script_controller[dom_tld]['bytes'] += resp['num_bytes_downloaded']
         except:
             pass
 
@@ -85,7 +86,7 @@ def call_and_manage_resps(
         
             # Extract links from sitemaps and internal_urls
             stage_unified_helpers.unified_link_extraction(
-                resp, lock, fetch_controller, totpages_controller, qout, conf, logger, current_engine)
+                resp, lock, fetch_controller, qout, conf, logger, current_engine)
 
         except Exception as e:
             logger.error(f"Unified processing error for {url}: {e}")
@@ -119,8 +120,8 @@ def call_and_manage_resps(
 
 
 def unified(mod, conf, exclusion_list, seen_filter, 
-        counter, lock, lock_driver, 
-        script_controller, fetch_controller, totpages_controller,
+        lock, lock_driver, 
+        script_controller, fetch_controller,
         qin, qout):
     
     '''
@@ -132,7 +133,6 @@ def unified(mod, conf, exclusion_list, seen_filter,
     ** counter: Integer with general counter
     ** script_controller: dict with specific counters
     ** fetch_controller: dom_tld based controller
-    ** totpages_controller: dom_tld based page counter
     ** qin: input queue
     ** qout: output queue
     '''
@@ -179,11 +179,11 @@ def unified(mod, conf, exclusion_list, seen_filter,
             if len(urls) >= conf['ASYNC_BLOCK_SIZE'] or qin.qsize() == 0:
                 call_and_manage_resps(
                     urls, mod, lock, lock_driver, exclusion_list, seen_filter, 
-                    fetch_controller, totpages_controller, script_controller, 
+                    fetch_controller, script_controller, 
                     conf, logger, hdrs, qout)
                 
                 with lock:
-                    counter.value += len(urls)
+                    script_controller['tot_counter'] += len(urls)
                 
                 urls = list()
 

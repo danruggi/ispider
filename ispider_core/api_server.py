@@ -10,13 +10,55 @@ import json
 import time
 import threading
 
+from contextlib import asynccontextmanager
+
 from ispider_core.ispider import ISpider
 from ispider_core.config import Settings
 from ispider_core.utils.logger import LoggerFactory
 
+
+"""
+Add domains
+
+curl -X POST http://localhost:8000/spider/domains/add \
+  -H "Content-Type: application/json" \
+  -d '{
+        "domains": [
+          "https://elmomentoqroo.mx/"
+        ]
+      }'
+
+"""
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global spider_instance, spider_config, spider_status, start_time
+
+    config = SpiderConfig(
+        domains=[],
+        stage="unified",
+        user_folder="/Volumes/Sandisk2TB/test_business_scraper_22"
+    )
+    spider_config = config
+    spider_instance = ISpider(domains=config.domains, stage=config.stage, **config.model_dump(exclude={"domains", "stage"}))
+    spider_status = "initialized"
+    start_time = time.time()
+
+    def run_in_background():
+        run_spider()
+
+    threading.Thread(target=run_in_background, daemon=True).start()
+
+    yield  # App is running
+
+    # (Optional) Cleanup logic can go here
+
+
 app = FastAPI(title="ISpider API", 
               description="API for controlling the ISpider web crawler",
-              version="0.1.0")
+              version="0.1.0",
+              lifespan=lifespan
+              )
 
 # CORS configuration
 app.add_middleware(
@@ -63,24 +105,7 @@ class SpiderStatusResponse(BaseModel):
     processed_count: int
 
 
-@app.on_event("startup")
-async def start_unified_spider():
-    global spider_instance, spider_config, spider_status, start_time
 
-    config = SpiderConfig(
-        domains=[],
-        stage="unified",
-        user_folder="/Volumes/Sandisk2TB/test_business_scraper_22"
-    )
-    spider_config = config
-    spider_instance = ISpider(domains=config.domains, stage=config.stage, **config.dict(exclude={"domains", "stage"}))
-    spider_status = "initialized"
-    start_time = time.time()
-
-    def run_in_background():
-        run_spider()
-
-    threading.Thread(target=run_in_background, daemon=True).start()
 
 @app.post("/spider/domains/add")
 async def add_domains(request: DomainAddRequest):
@@ -110,7 +135,6 @@ async def get_status():
         "status": spider_status,
         "running_time": running_time,
         "config": spider_config.dict() if spider_config else {},
-        "processed_count": spider_instance.shared_counter.value if spider_instance and hasattr(spider_instance, 'shared_counter') else 0
     }
 
 

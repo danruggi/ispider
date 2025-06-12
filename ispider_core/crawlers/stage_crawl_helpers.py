@@ -16,9 +16,10 @@ def robots_sitemaps_crawl(c, lock, fetch_controller, engine, conf, logger, qout)
                 return
             sitemap_url = domains.add_https_protocol(dom_tld)+"/sitemap.xml"
             with lock:
-                fetch_controller[dom_tld] += 1
-
+                fetch_controller[dom_tld]['missing_pages'] += 1
+                fetch_controller[dom_tld]['tot_pages'] += 1
             qout.put((sitemap_url, 'sitemap', dom_tld, 0, 1, engine))
+
         return
 
     if c['content'] is None:
@@ -33,8 +34,8 @@ def robots_sitemaps_crawl(c, lock, fetch_controller, engine, conf, logger, qout)
         robots_url = protfurltld+"/robots.txt"
         
         with lock:
-            fetch_controller[dom_tld] += 1
-
+            fetch_controller[dom_tld]['missing_pages'] += 1
+            fetch_controller[dom_tld]['tot_pages'] += 1
         qout.put((robots_url, 'robots', dom_tld, 0, 1, engine))
 
     # Add sitemaps from robot file 
@@ -53,7 +54,8 @@ def robots_sitemaps_crawl(c, lock, fetch_controller, engine, conf, logger, qout)
                     robots_sitemaps.add(sitemap_url)
 
                     with lock:
-                        fetch_controller[dom_tld] += 1
+                        fetch_controller[dom_tld]['missing_pages'] += 1
+                        fetch_controller[dom_tld]['tot_pages'] += 1
 
                     qout.put((sitemap_url, 'sitemap', dom_tld, 0, 1, engine))
                     c['has_sitemap'] = True;
@@ -65,11 +67,11 @@ def robots_sitemaps_crawl(c, lock, fetch_controller, engine, conf, logger, qout)
         
         smp =  SitemapParser(logger, conf)
         sm_urls = smp.extract_sitemap_urls(c['content'], dom_tld)
-        count = 0
         for sitemap_url in sm_urls:
-            count+=1;
             if depth > conf['SITEMAPS_MAX_DEPTH']:
                 continue
             with lock:
-                fetch_controller[dom_tld] += 1
+                fetch_controller[dom_tld]['missing_pages'] += 1
+                fetch_controller[dom_tld]['tot_pages'] += 1
+
             qout.put((sitemap_url, 'sitemap', dom_tld, 0, depth+1, engine))

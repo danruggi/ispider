@@ -3,20 +3,20 @@ import pandas as pd
 
 if __name__ == '__main__':
     config_overrides = {
-        'USER_FOLDER': '/Volumes/Sandisk2TB/test_business_scraper_13',
+        'USER_FOLDER': '/Volumes/Sandisk2TB/test_business_scraper_17',
         'POOLS': 32,
         'ASYNC_BLOCK_SIZE': 16,
         'MAXIMUM_RETRIES': 1,
-        'CRAWL_METHODS': [],
+        # 'CRAWL_METHODS': [],
         'CODES_TO_RETRY': [430, 503, 500, 429, -1],
         'CURL_INSECURE': True,
-        'MAX_PAGES_POR_DOMAIN': 50,
+        'MAX_PAGES_POR_DOMAIN': 50000,
         'ENGINES': ['httpx', 'curl'],
-        'LOG_LEVEL': 'INFO',
+        'LOG_LEVEL': 'DEBUG',
     }
 
     df = pd.read_csv('t.csv')
-    df = df.sample(n=10, random_state=42)  # random_state for reproducibility
+    # df = df.sample(n=10, random_state=42)  # random_state for reproducibility
 
     doms = df['dom_tld'].tolist()
 
