@@ -8,7 +8,7 @@ class Orchestrator:
         self.controller = None
         self.conf = conf
         self.manager = manager
-        self.logger = LoggerFactory.create_logger("./logs", "orchestrator.log", log_level=conf['LOG_LEVEL'], stdout_flag=True)
+        self.logger = LoggerFactory.create_logger(self.conf, "ispider.log", stdout_flag=True)
 
     @property
     def shared_new_domains(self):
@@ -25,6 +25,12 @@ class Orchestrator:
     def shared_dom_stats(self):
         if self.controller and hasattr(self.controller, 'shared_dom_stats'):
             return self.controller.shared_dom_stats
+        return None
+
+    @property
+    def shared_script_controller(self):
+        if self.controller and hasattr(self.controller, 'shared_script_controller'):
+            return self.controller.shared_script_controller
         return None
 
     def run(self):
@@ -54,4 +60,7 @@ class Orchestrator:
 
 
     def shutdown(self):
-        self.manager.shutdown()
+        
+        if self.controller and hasattr(self.controller, "_shutdown"):
+            self.controller._shutdown()
+

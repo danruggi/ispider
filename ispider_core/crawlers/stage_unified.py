@@ -139,11 +139,7 @@ def unified(mod, conf, exclusion_list, seen_filter,
     ** qout: output queue
     '''
     
-    logger = LoggerFactory.create_logger(
-                "./logs", "stage_unified.log",
-                log_level=conf['LOG_LEVEL'],
-                stdout_flag=True
-            )
+    logger = LoggerFactory.create_logger(conf, "ispider.log", stdout_flag=True)
 
     urls = list()
 
@@ -192,4 +188,6 @@ def unified(mod, conf, exclusion_list, seen_filter,
     except KeyboardInterrupt:
         logger.warning("Subprocess interrupted by keyboard")
 
+    logger.debug(f"Closing worker {mod}")
+    
     return None

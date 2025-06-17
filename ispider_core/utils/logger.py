@@ -7,7 +7,7 @@ import sys
 class LoggerFactory:
 
     @staticmethod
-    def create_logger(log_folder, log_file="ispider.log", log_level="INFO", stdout_flag=False):
+    def create_logger(conf, log_file="ispider.log", stdout_flag=False):
         """
         Creates and returns a logger instance.
 
@@ -20,8 +20,11 @@ class LoggerFactory:
         Returns:
             logging.Logger: Configured logger instance.
         """
+
         log_file="ispider.log" # overwrite this for installed module
-        
+        log_folder = os.path.join(conf['USER_FOLDER'], "logs")
+        log_level = conf['LOG_LEVEL']
+
         # Ensure log folder exists
         os.makedirs(log_folder, exist_ok=True)
         full_log_file = os.path.join(log_folder, log_file)

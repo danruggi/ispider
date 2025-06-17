@@ -1,8 +1,4 @@
 dom_tld,classification,date,note
-google.com,google,2023-07-24,
-google.fr,google,2023-07-24,
-etsy.com,other,2023-07-24,
-dan.com,business,2023-05-01,
-issuu.com,business,2023-05-01,
+example.com,example,2025-07-24,"Excluded as example"
 youtube.com,google,2025-01-01,
 facebook.com,facebook,2025-01-01,

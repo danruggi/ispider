@@ -33,7 +33,7 @@ class BaseCrawlController:
         self.manager = manager
         self.conf = conf
         self.stage = conf['method']  # Reflect the stage
-        self.logger = LoggerFactory.create_logger("./logs", log_file, log_level=conf['LOG_LEVEL'], stdout_flag=True)
+        self.logger = LoggerFactory.create_logger(self.conf, "ispider.log", stdout_flag=True)
         
         # Locks
         self.shared_lock = self.manager.Lock()
@@ -72,16 +72,20 @@ class BaseCrawlController:
                 queue_out_handler.conf['domains'] = new_domains
                 queue_out_handler.fullfill(self.stage)
             time.sleep(3)
-        self.logger.info("Closing enqueue new domains")
+        self.logger.info("Closing enqueue_new_domains")
 
     def flush_stats_loop(self):
-        while True:
+        while self.shared_script_controller['running_state']:
             try:
                 self.shared_dom_stats.flush_qstats()
+            except EOFError:
+                self.logger.warning(f"flush_stats_loop closed by EOF")
+                break
             except Exception as e:
                 self.logger.warning(f"Failed to flush stats: {e}")
             time.sleep(1)  # Flush every 1 second, adjust as needed
-
+        self.logger.info("Closing flush_stats_loop")
+        
     def _get_manager_seen_filter(self):
         m = SeenFilterManager()
         m.start()
@@ -215,7 +219,7 @@ class BaseCrawlController:
             unfinished = self.shared_dom_stats.get_unfinished_domains()
             self.logger.info(f"Unfinished: {unfinished}")
             self.logger.info(f"*** Done {self.shared_script_controller['tot_counter']} PAGES")
-            self._shutdown()
+            # self._shutdown()
             return True
 
     def _shutdown(self):
@@ -231,6 +235,10 @@ class BaseCrawlController:
         # now join the enqueue thread
         if self.enqueue_thread is not None:
             self.enqueue_thread.join()
+
+        # join flush thread (missing)
+        if self.flush_thread is not None:
+            self.flush_thread.join()
 
         self.logger.info("All threads and processes stopped.")
 

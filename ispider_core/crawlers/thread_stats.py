@@ -17,7 +17,7 @@ def stats_srv(
     '''
     shared_script_controller: [Landing, Robots, Sitemaps, Bytes Downloaded]
     '''
-    logger = LoggerFactory.create_logger("./logs", "spider_stats.log", log_level=conf['LOG_LEVEL'], stdout_flag=True)
+    logger = LoggerFactory.create_logger(conf, "ispider.log", stdout_flag=True)
 
     start = datetime.now()
     logger.debug(f"Start Time: {start}")
@@ -33,13 +33,14 @@ def stats_srv(
             time.sleep(5)
 
             tdiff = time.time() - t0
-            if tdiff <= 15:
+            if tdiff <= 30:
                 continue
 
             t0 = time.time()
 
             # Running State
             if shared_script_controller['running_state'] == 0:
+                logger.info("Closing stats")
                 logger.info(f"** STATS FINISHED IN: {round((time.time() - x0), 2)} seconds")
                 break
             elif shared_script_controller['running_state'] == 1:

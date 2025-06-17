@@ -17,11 +17,7 @@ class ResumeState:
         """
         self.conf = conf
         self.stage = stage
-        self.logger = LoggerFactory.create_logger(
-            "./logs", f"{stage}_resume_state.log",
-            log_level=conf['LOG_LEVEL'],
-            stdout_flag=True
-        )
+        self.logger = LoggerFactory.create_logger(self.conf, "ispider.log", stdout_flag=True)
 
     def load_finished_domains(self):
         """Loads the finished domains from a stage-specific pickle file."""

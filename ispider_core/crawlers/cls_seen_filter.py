@@ -17,7 +17,7 @@ class SeenFilter:
         self.conf = conf
         self.lock = lock
         self.bloom = BloomFilter(capacity=capacity, error_rate=error_rate)
-        self.logger = LoggerFactory.create_logger("./logs", "seen_filter.log", log_level=conf['LOG_LEVEL'], stdout_flag=True)
+        self.logger = LoggerFactory.create_logger(self.conf, "ispider.log", stdout_flag=True)
 
         self._load_existing_hashes()
 

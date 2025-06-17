@@ -12,7 +12,7 @@ def queue_in_srv(
     script_controller, dom_stats, 
     seen_filter, conf, qin, qout):
     
-    logger = LoggerFactory.create_logger("./logs", "queue_in.log", log_level=conf['LOG_LEVEL'], stdout_flag=True)
+    logger = LoggerFactory.create_logger(conf, "ispider.log", stdout_flag=True)
     
     Q_MAX = conf['QUEUE_MAX_SIZE']
     Q_BLOCK_MAX = max(min(Q_MAX, 5000), Q_MAX // 2)
@@ -29,7 +29,7 @@ def queue_in_srv(
             # Queue management every ~5 seconds
             if time.time() - t0 > 5:
                 if script_controller['running_state'] == 0:
-                    logger.info("State Controller 0: Finishing Thread Q_IN")
+                    logger.info("Closing queue_in_srv")
                     # logger.info(f"TOT INSERTED (DURLS): {len(durls)}")
                     break
                 t0 = time.time()

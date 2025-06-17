@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ispider"
-version = "0.4.2"
+version = "0.5b19"
 description = "A high-speed web spider for massive scraping."
 authors = [{ name = "Daniele Rugginenti", email = "daniele.rugginenti@gmail.com" }]
 urls = {"Homepage" =  "https://github.com/danruggi/ispider"}
@@ -26,6 +26,8 @@ dependencies = [
     "validators",
     "w3lib",
     "pybloom_live",
+    "uvicorn",
+    "fastapi"
 ]
 
 [project.scripts]

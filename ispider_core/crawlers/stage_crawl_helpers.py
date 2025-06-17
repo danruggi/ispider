@@ -36,6 +36,9 @@ def robots_sitemaps_crawl(c, dom_stats, engine, conf, logger, qout):
 
     # Add sitemaps from robot file 
     elif rd == 'robots':
+ 
+        dom_stats.qstats.put({"dom_tld": dom_tld, "key": "has_robot", "value": True, "op": "set"})
+ 
         if 'sitemaps' not in conf['CRAWL_METHODS']:
             return
         robots_sitemaps = set()
@@ -57,7 +60,7 @@ def robots_sitemaps_crawl(c, dom_stats, engine, conf, logger, qout):
 
     # Add sitemaps from sitemap, deeper depth: 
     elif rd == 'sitemap':
-        
+        dom_stats.qstats.put({"dom_tld": dom_tld, "key": "has_sitemaps", "value": True, "op": "set"})
         smp =  SitemapParser(logger, conf)
         sm_urls = smp.extract_sitemap_urls(c['content'], dom_tld)
         for sitemap_url in sm_urls:

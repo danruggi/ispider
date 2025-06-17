@@ -118,11 +118,7 @@ def crawl(mod, conf, exclusion_list, seen_filter,
     ** q: shared queue
     '''
     # from libs.dump_files import dumpToFile
-    logger = LoggerFactory.create_logger(
-                "./logs", "stage_crawl.log",
-                log_level=conf['LOG_LEVEL'],
-                stdout_flag=True
-            )
+    logger = LoggerFactory.create_logger(conf, "ispider.log", stdout_flag=True)
 
     tot_workers = conf['POOLS']
 

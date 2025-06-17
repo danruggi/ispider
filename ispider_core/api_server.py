@@ -1,4 +1,3 @@
-# api.py
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -9,13 +8,35 @@ from pathlib import Path
 import json
 import time
 import threading
+import sys
+import uvicorn
+import signal
+import asyncio
 
+import contextlib
+from datetime import datetime
 from contextlib import asynccontextmanager
 
 from ispider_core.ispider import ISpider
 from ispider_core.config import Settings
 from ispider_core.utils.logger import LoggerFactory
 
+
+from pathlib import Path
+
+# Create a logs directory inside /tmp or wherever is appropriate
+log_dir = Path("/tmp/ispider_logs")
+log_dir.mkdir(parents=True, exist_ok=True)
+
+# Use timestamped log file
+log_file_path = log_dir / f"ispider.log"
+log_file = open(log_file_path, "a")
+
+# Redirect stdout and stderr to file
+sys.stdout = log_file
+sys.stderr = log_file
+
+print(f"[LOGGING] Redirected output to: {log_file_path}")
 
 """
 Add domains
@@ -28,42 +49,170 @@ curl -X POST http://localhost:8000/spider/domains/add \
         ]
       }'
 
+curl -X POST http://localhost:8000/spider/domains/add \
+  -H "Content-Type: application/json" \
+  -d '{
+        "domains": [
+           "vazquezconstructionservicesllc.com", "idahoveterinarysurgery.com", "vogelappraisal.net"
+        ]
+      }'
 
 curl http://localhost:8000/spider/status
+curl http://localhost:8000/spider/domains
+curl http://localhost:8000/spider/config/get
 
+
+curl http://localhost:8000/spider/stop
+
+
+vazquezconstructionservicesllc.com
+idahoveterinarysurgery.com
+vogelappraisal.net 
+vogue-drycleaning.com
+deskydoo.com
 """
 
+
+## GLOBAL VARIABLES
+spider_instance = None
+spider_config = None
+spider_status = None
+start_time = None
+global_server = None
+shutdown_event = threading.Event()
+
+# CLASSES
+class Server(uvicorn.Server):
+    
+    def install_signal_handlers(self):
+        pass
+
+    @contextlib.contextmanager
+    def run_in_thread(self):
+        thread = threading.Thread(target=self.run)
+        thread.start()
+        try:
+            while not self.started:
+                print("STARTING")
+                time.sleep(1e-3)
+            yield
+            print("STARTED")
+        finally:
+            self.should_exit = True
+            thread.join()
+
+    def run(self, sockets=None):
+        print("[Server.run] Starting run()")
+        def wrapper():
+            self.started = True
+            print("[Server.run] Marked started = True")
+            return self.serve(sockets=sockets)
+
+        return asyncio.run(wrapper())
+
+    def shutdown_server(self):
+        """Directly shut down server instance and its loop"""
+        self.should_exit = True
+        self.force_exit = True  # <- ADD THIS
+        print("[Server -> shutdown] Shutting down")
+        if hasattr(self, 'server') and self.server is not None:
+            self.server.should_exit = True
+            self.server.force_exit = True
+            if hasattr(self.server, 'loop') and self.server.loop is not None:
+                self.server.loop.call_soon_threadsafe(self.server.loop.stop)  # <- force asyncio loop to break
+
+    def run_and_wait(self):
+        """Start server in thread, wait for shutdown_event, then clean up."""
+        with self.run_in_thread():
+            print("[main] Server started")
+            try:
+                shutdown_event.wait()
+            except KeyboardInterrupt:
+                print("Keyboard interrupt received")
+            finally:
+                try:
+                    print("Shutting down server…")
+                    close_spider()
+                    self.shutdown_server()
+                except Exception as e:
+                    print(f"Possibly not a clen shutdown {e}")
+        print("Server fully shut down")
+
+
+
+class SpiderConfig(BaseModel):
+    domains: List[str] = []
+    stage: Optional[str] = None
+    user_folder: str = "~/.ispider/"
+    log_level: str = "DEBUG"
+    pools: int = 4
+    async_block_size: int = 4
+    maximum_retries: int = 2
+    codes_to_retry: List[int] = [430, 503, 500, 429]
+    engines: List[str] = ["httpx", "curl"]
+    crawl_methods: List[str] = ["robots", "sitemaps"]
+    max_pages_per_domain: int = 5000
+    websites_max_depth: int = 5
+    sitemaps_max_depth: int = 2
+    timeout: int = 5
+
+class DomainAddRequest(BaseModel):
+    domains: List[str]
+
+
+## LIFESPAN
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global spider_instance, spider_config, spider_status, start_time
+    
+    # UI watchdog setup
+    try:
+        if ui_pid_str := os.getenv("ISP_UI_PID"):
+            try:
+                ui_pid = int(ui_pid_str)
+                print(f"[lifespan] 👀 Watching UI PID: {ui_pid}")
+                # Non-daemon thread for reliable cleanup
+                threading.Thread(
+                    target=ui_watchdog, 
+                    args=(ui_pid,),
+                    daemon=False
+                ).start()
+            except ValueError:
+                print("Invalid ISP_UI_PID format")
+                
+        # Spider initialization
+        config = SpiderConfig(
+            domains=[],
+            stage="unified",
+            user_folder="/Volumes/Sandisk2TB/test_business_scraper_22"
+        )
 
-    config = SpiderConfig(
-        domains=[],
-        stage="unified",
-        user_folder="/Volumes/Sandisk2TB/test_business_scraper_22"
-    )
-    spider_config = config
-    spider_instance = ISpider(domains=config.domains, stage=config.stage, **config.model_dump(exclude={"domains", "stage"}))
-    spider_status = "initialized"
-    start_time = time.time()
+        spider_config = config
+        spider_instance = ISpider(domains=config.domains, stage=config.stage, **config.model_dump(exclude={"domains", "stage"}))
+        spider_status = "initialized"
+        start_time = time.time()
+        
+        threading.Thread(target=run_spider, daemon=True).start()
 
-    def run_in_background():
-        run_spider()
+        yield
 
-    threading.Thread(target=run_in_background, daemon=True).start()
-
-    yield  # App is running
-
-    # (Optional) Cleanup logic can go here
+    except asyncio.CancelledError:
+        print("[lifespan] ⚠️ Cancelled -- Error during shutdown — safe to ignore")
+    finally:
+        close_spider()
+        if not shutdown_event.is_set():
+            shutdown_event.set()
 
 
-app = FastAPI(title="ISpider API", 
-              description="API for controlling the ISpider web crawler",
-              version="0.1.0",
-              lifespan=lifespan
-              )
 
+app = FastAPI(
+    title="ISpider API", 
+    description="API for controlling the ISpider web crawler",
+    version="0.1.0",
+    lifespan=lifespan
+)
 # CORS configuration
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -73,30 +222,49 @@ app.add_middleware(
 )
 
 
-# Global state for active spiders
-spider_instance = None
-spider_config = None
-spider_status = "not_started"
-start_time = None
 
-class SpiderConfig(BaseModel):
-    domains: List[str] = []
-    stage: Optional[str] = None
-    user_folder: str = "/Volumes/Sandisk2TB/test_business_scraper_22"
-    log_level: str = "DEBUG"
-    pools: int = 4
-    async_block_size: int = 4
-    maximum_retries: int = 2
-    codes_to_retry: List[int] = [430, 503, 500, 429]
-    engines: List[str] = ["httpx", "curl"]
-    crawl_methods: List[str] = ["robots", "sitemaps"]
-    max_pages_per_domain: int = 5000
-    websites_max_depth: int = 2
-    sitemaps_max_depth: int = 2
-    timeout: int = 5
+def ui_watchdog(ui_pid):
+    """Watchdog that triggers shutdown event on UI death"""
+    while not shutdown_event.is_set():
+        try:
+            os.kill(ui_pid, 0)  # Check process existence
+            # print(f"[Wathcdog] running, {shutdown_event.is_set()}")
+            # time.sleep(10)
+            # raise Exception("Kill")
+        except Exception as e:
+            print(f"[Wathcdog] 🚨 UI PID {ui_pid} died → API shutdown: {e}")
+            shutdown_event.set()  # Signal main thread
+            break
+        time.sleep(1)
 
-class DomainAddRequest(BaseModel):
-    domains: List[str]
+
+
+
+def close_spider():
+    global spider_instance
+    if spider_instance:
+        try:
+            print("Shutting down spider...")
+            spider_instance.shutdown()
+        except Exception as e:
+            print(f"Shutdown error: {str(e)}")
+        finally:
+            spider_instance = None
+
+def run_spider():
+    global spider_instance, spider_status
+    try:
+        spider_status = "running"
+        spider_instance._ensure_manager()
+        spider_instance.run()
+        spider_status = "completed"
+    except Exception as e:
+        spider_status = "failed"
+        print(f"[ERROR] Spider failed: {e}")
+
+
+
+
 
 
 
@@ -118,6 +286,16 @@ async def add_domains(request: DomainAddRequest):
     return {"message": "Domains added successfully", "added_domains": new_domains}
 
 
+@app.get("/spider/domains")
+async def get_domains():
+    global spider_instance
+    if not spider_instance or not spider_instance.shared_dom_stats:
+        return {"domains": []}
+    
+    dom_stats = spider_instance.shared_dom_stats
+    domains = list(dom_stats.dom_missing.keys())  # Correctly get domain list
+    return {"domains": domains}
+
 
 @app.get("/spider/status")
 async def get_status():
@@ -129,11 +307,26 @@ async def get_status():
 
     running_time = time.time() - start_time if start_time else 0
 
+    status = {'script_controller': spider_instance.shared_script_controller}
+
     with dom_stats.lock:
-        status = {}
+        status['domains'] = {}
         for dom in dom_stats.dom_missing.keys():
-            status[dom] = {
+            try:
+                progress = round(((dom_stats.dom_total[dom]-dom_stats.dom_missing[dom])/dom_stats.dom_total[dom]), 2)
+            except:
+                progress = 0
+
+            status['domains'][dom] = {
+                "domain": dom,
+                "status": "Finished" if dom_stats.dom_missing[dom] == 0 else "Running",
+                "progress": progress,
+                "speed": 0,
+                "pagesFound": dom_stats.dom_total[dom],
+                "hasRobot": dom_stats.local_stats[dom].get('has_robot', False),
+                "hasSitemaps": dom_stats.local_stats[dom].get('has_sitemaps', False),
                 "bytes": dom_stats.local_stats[dom].get('bytes', 0),
+                "lastUpdated": datetime.utcnow().isoformat() + "Z",
                 "missing": dom_stats.dom_missing[dom],
                 "total": dom_stats.dom_total[dom],
                 "last_call": dom_stats.dom_last_call.get(dom, 0),
@@ -143,25 +336,62 @@ async def get_status():
     return status
 
 
-@app.post("/spider/stop")
+@app.get("/spider/config/get", response_model=SpiderConfig)
+async def get_config():
+    global spider_config
+    if not spider_config:
+        raise HTTPException(status_code=404, detail="No configuration set")
+    
+    return spider_config.model_dump(exclude={"domains", "stage"})
+
+
+@app.post("/spider/config/set")
+async def set_config(new_config: SpiderConfig):
+    global spider_instance, spider_config, spider_status, start_time
+
+    # Stop current spider
+    close_spider()
+
+    # Save and apply new config
+    spider_config = new_config
+    spider_instance = ISpider(
+        domains=new_config.domains,
+        stage=new_config.stage,
+        **new_config.model_dump(exclude={"domains", "stage"})
+    )
+    spider_status = "initialized"
+    start_time = time.time()
+
+    # Start the new spider in a thread
+    threading.Thread(target=run_spider, daemon=True).start()
+
+    return {"message": "Spider restarted with new config", "config": new_config.model_dump()}
+
+@app.get("/spider/stop")
 async def stop_spider():
-    global spider_status
-    spider_status = "stopping"
-    return {"message": "Stop signal sent (graceful shutdown not yet implemented)"}
+    close_spider()
+    return {"message": "Stop signal sent"}
 
-
-def run_spider():
-    global spider_instance, spider_status
-
-    try:
-        spider_status = "running"
-        spider_instance._ensure_manager()
-        spider_instance.run()
-        spider_status = "completed"
-    except Exception as e:
-        spider_status = "failed"
-        print(f"[ERROR] Spider failed: {e}")
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    config = uvicorn.Config(
+        app,
+        host="0.0.0.0",
+        port=8000,
+        timeout_keep_alive=5,
+        access_log=False
+    )
+    server = Server(config)
+
+    with server.run_in_thread():
+        print("[main] Server started")
+        try:
+            shutdown_event.wait()
+        except KeyboardInterrupt:
+            print("Keyboard interrupt received")
+        finally:
+            print("Shutting down server…")
+            close_spider()
+            server.shutdown_server()
+
+    print("Server fully shut down")

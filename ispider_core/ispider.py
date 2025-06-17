@@ -23,7 +23,8 @@ class ISpider:
         self.orchestrator = None
 
         self.conf = self._setup_conf(domains, kwargs)
-        self.logger = LoggerFactory.create_logger("./logs", "ispider.log", log_level=self.conf['LOG_LEVEL'], stdout_flag=True)
+        
+        self.logger = LoggerFactory.create_logger(self.conf, "ispider.log", stdout_flag=True)
         self._prepare_directories()
         self._download_csv_if_needed()
         
@@ -41,6 +42,12 @@ class ISpider:
     def shared_dom_stats(self):
         if self.orchestrator:
             return getattr(self.orchestrator, 'shared_dom_stats', None)
+        return None
+
+    @property
+    def shared_script_controller(self):
+        if self.orchestrator:
+            return getattr(self.orchestrator, 'shared_script_controller', None)
         return None
 
     def _setup_conf(self, domains, kwargs):
@@ -123,4 +130,12 @@ class ISpider:
         return {}
 
     def shutdown(self):
-        self.manager.shutdown()
+        if self.orchestrator:
+            # Tell orchestrator and controller to stop threads and processes
+            self.orchestrator.shutdown()
+
+        # Only after all threads/processes joined, then shutdown manager
+        if self.manager:
+            self.manager.shutdown()
+
+        self.logger.info("Ispider shutdown complete")

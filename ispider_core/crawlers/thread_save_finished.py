@@ -7,7 +7,7 @@ from datetime import datetime
 from ispider_core.utils.logger import LoggerFactory
 
 def save_finished(script_controller, dom_stats, lock, conf):
-    logger = LoggerFactory.create_logger("./logs", "save_finished.log", log_level=conf['LOG_LEVEL'], stdout_flag=True)
+    logger = LoggerFactory.create_logger(conf, "ispider.log", stdout_flag=True)
 
     def save_pickle_file(withLock=True):
         t0 = time.time()
@@ -53,7 +53,7 @@ def save_finished(script_controller, dom_stats, lock, conf):
             save_pickle_file()
 
             if script_controller['running_state'] == 0:
-                logger.info("SAVE FINISHED URLS FINISHED")
+                logger.info("closing saved_finished")
                 break
 
     except KeyboardInterrupt:

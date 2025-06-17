@@ -1,39 +1,57 @@
-# ispider_core/__main__.py
 
+import os
+import csv
 import sys
-import pandas as pd
 from ispider_core.utils.menu import menu
-from ispider_core.utils.logger import LoggerFactory
-from ispider_core.ispider import ISpider  # Make sure this is the actual class location
+from ispider_core.ispider import ISpider
+import subprocess
+
+from ispider_core.api_server import app, Server, close_spider
 
 def main():
     args = menu()
 
     if args.stage is None:
-        print("❌ No valid stage selected. Use -h for help.")
+        print("No valid stage selected. Use -h for help.")
         sys.exit(1)
 
+    if args.stage == 'api':
+
+        print("🚀 Starting API server...")
+        import uvicorn
+
+        if args.ui_pid:
+            print(f"[iSpider] 💻 UI PID received: {args.ui_pid}")
+            os.environ["ISP_UI_PID"] = str(args.ui_pid)
+
+        config = uvicorn.Config(app, host="0.0.0.0", port=8000, access_log=False)
+        server = Server(config)
+        server.run_and_wait()
+
+        return
+        
     if not args.f and not args.o:
-        print("❌ Please provide either -f <file.csv> or -o <domain>")
+        print("Please provide either -f <file.csv> or -o <domain>")
         sys.exit(1)
 
-    # Get domain list
     domains = []
     if args.f:
         try:
-            df = pd.read_csv(args.f)
-            if 'dom_tld' not in df.columns:
-                print("❌ Column 'dom_tld' not found in file.")
-                sys.exit(1)
-            domains = df['dom_tld'].dropna().unique().tolist()
+            with open(args.f, newline='', encoding='utf-8') as csvfile:
+                reader = csv.DictReader(csvfile)
+                if 'dom_tld' not in reader.fieldnames:
+                    print("Column 'dom_tld' not found in file.")
+                    sys.exit(1)
+
+                # Read all values of 'dom_tld' column, ignoring empty strings
+                domains = list({row['dom_tld'] for row in reader if row['dom_tld'].strip()})
         except Exception as e:
-            print(f"❌ Error reading file {args.f}: {e}")
+            print(f"Error reading file {args.f}: {e}")
             sys.exit(1)
 
     elif args.o:
         domains = [args.o]
 
-    # Minimal configuration (extend if needed)
     config_overrides = {
         'USER_FOLDER': '~/.ispider/',
         'POOLS': 4,
@@ -46,7 +64,6 @@ def main():
         'LOG_LEVEL': 'INFO',
     }
 
-    # print(f"🚀 Running stage: {args.stage} on {len(domains)} domain(s)")
     spider = ISpider(domains=domains, stage=args.stage, **config_overrides)
     spider.run()
 
