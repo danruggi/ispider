@@ -38,39 +38,7 @@ sys.stderr = log_file
 
 print(f"[LOGGING] Redirected output to: {log_file_path}")
 
-"""
-Add domains
 
-curl -X POST http://localhost:8000/spider/domains/add \
-  -H "Content-Type: application/json" \
-  -d '{
-        "domains": [
-           "vazquezconstructionservicesllc.com", "idahoveterinarysurgery.com", "vogelappraisal.net", "vogue-drycleaning.com", "whitepinebuildersinc.com", "whitepinemotel.com", "whitepine-outfitters.com", "eatdrinkwhiterabbit.com", "rayjwhiteproperties.com", "claudiawhittenglass.com", "wholebeingmassage.com", "mountainvalleyhealthcare.com", "we-silver-jewels.com", "wilburncustomshop.com", "wildbuffalomedia.com", "wildcactussalontf.com", "wildcow.org", "metalcraftidaho.com", "grwei.com", "williamsfruitranch.com", "williamsphc.com", "willowtreepreschool.org", "willowviewconsulting.com", "wilsonharris.com", "windsorsnursery.com", "winnscompost.com", "winstonwatercooler.com", "winterridgefoods.com", "winterspirit.com", "painters-boise.com", "woodfuneralhome.com", "woodinnovations-idaho.com", "woodriverbotanicals.com", "woodingtonvet.com", "woodshayandgrain.com", "woodswheatcroft.com", "cityofweston-id.org", "woodysoutdoorpower.com", "woodystowing.net", "massageatworldtree.com", "wwe-idaho.com", "worldcastanglers.com", "carpetcleaninginsandpoint.com", "xviii.com", "xylem.com", "y7consulting.com", "yacht-clubmccall.com", "affordableraingutter.net", "airbagmodulerepair.com", "avalosmf.com", "bairdssmallenginerepairs.com", "beaverdencreations.com", "goldenbeegardening.com", "bluelakesgoldandsilver.com", "idaho-backflow.com", "boiseballoonsandbouncers.net", "canyonconstructionservices.net", "chirhoprecision.com", "chickadeedance.com", "denosllc.com", "depotgrilltwinfalls.com", "freedomelectricid.com", "inlandtarpandcover.com", "littlechampscare.com", "livedincurls.com", "jewlvacations.com", "maggiemalsonphotography.com", "magicvalleypipeandsteel.com", "magicvalleysquardance.com", "nelsonsautomotive.net", "photographybyjonceemay.com", "prettiesartistry.com", "pictureperfectesthetics.com", "pottingshedcreations.com", "powerplantweb.com", "preciseprototypes.net", "priestrivertoolrepair.com", "printa.com", "loyaltishanksent.com", "getbeauty-gethealth.com", "getinsuranceleads.io", "pocatellopitstop.com", "mybigcommerce.com", "thewhitetulipsalon.com", "ynotadvertising.net", "yoursolution.net", "yourtechllc.com", "y-rstorage.com", "wefinanceidaho.com", "mikemcgowanracing.net", "fightingchanceidaho.com", "graciesandpoint.com", "downtownsandpoint.com", "cbdamericanshaman.com", "itmattersaesthetics.com", "mrappliance.com", "coopernorman.com", "adamsmongoliangrillandasianfusion.com", "accidaho.com", "amigoautoid.com", "bassettbuildingsupply.com", "bathandbodyworks.com", "batsxpress.com", "idahots.com", "creationsofachild.com", "creeksideinnbandb.com", "dacsq.com", "dancedepot.com", "diamondmodernmedia.com", "autorepairjerome.com", "idmtnatv.com", "theidahopioneer.com", "idahoprecuthomes.com", "diyhomeandgardentips.com", "lifelinerepairs.com", "lighthousetattooidaho.com", "longbridgebookkeeping.com", "christianiarestaurant.com", "milkcratecreate.com", "numaxxperformance.com", "cpsagu.com", "outlawpizzeria.com", "oxfordsuitesboise.com", "sandpoint.com", "sbtribes.com", "roeann.com", "roguemarketinganddesign.com", "rollinghcycles.com", "stromelectric.net", "ticketstubssportspub.com", "stuckiconstruction.com", "studio93pro.com", "sunsetmarts.com", "supersealtech.com", "superiordoorcoid.com", "superiorsweepingidaho.com", "surveyvitals.com", "topgaragedoorsidahofalls.com", "tnesvcs.com", "topshedidaho.com", "torrescarcareid.com", "mytriathlonjewelry.com", "tvdrivingschool.com", "treasurevalleypaints.com", "treasurevalleyraingutters.com", "troypreschool.com", "jimdofree.com", "trudyskitchenidahocity.com", "trulynolenboise.com", "truthps.com", "whateverittakespainting.com", "samtheconcreteman.com", "kitchenpowerpopups.com", "rooterman.com", "absolutservicesllc.com", "atlaswebdevelopmentpro.com", "autospringcorp.com", "thecasaanejo.com", "casanuevoleonid.com", "uhaul.com", "countrystorage.net", "countrysidecrafts.net", "digitallibations.com", "dirtworkservice.com", "fenixphotography.com", "fiestaguadalajara.com", "garyswindshields.com", "gatecitycollective.com", "gaylonsautobodyrepair.com", "idahomdesign.net", "idawild.info", "jbcbuilds.us", "higginssigns.net", "lonecypresswindowcleaning.com", "lonepinenursery.com", "millsangusbulls.com", "minaliocouturier.com", "massagebyrach.com", "mhsprings.com", "id.gov", "northidahoheating.com", "mountainviewbehavioralhealth.com", "nyhusevents.com", "obsidiandb.com", "piecingparadise.com", "thepinnaclegrp.com", "mydirectstay.com", "pioneermhp.com", "risesandpoint.com", "risingriverinc.com", "stangerangus.com", "callthemasters.com", "starinflatables.com", "angieslist.com", "tires2goidaho.com", "tlc-woodcrafts.com", "tlksourcing.com", "whitehorsehomeinspections.com", "reynoldschapel.com", "thewickedspud.com", "work-idaho.com", "thescrubcorner.com", "yogaforwellnesspro.com", "crashchampions.com", "extremeluxurytravel.com", "goldenbabeidaho.com", "grayhawkfarm.com", "matrixamplification.com", "omniss.com", "mrhandyman.com", "spencershandyman.com", "wedoitallhandyman.com", "reputationmarketingagency.net", "rovebackcountry.com", "visitsandpoint.com", "atdidahofalls.com", "lilylaceflowers.net", "boiseschools.org", "sunvalleyexpress.com", "supremelawncareservices.com", "briobowls.net", "coeurdalene-lawn-care.com", "klassypermanentcosmetics.com", "cdadoggrooming.com", "press-times.com", "alpinephysicaltherapyidaho.com", "8bitbarbershop.com", "afigym.com", "ajplace.top", "auroraspaunique.com", "autotrustboise.com", "portalced.com", "therivervalleyhandyman.com", "2ttrailers.com", "3heartoutfitters.net", "idahodj.com", "ascentwatersports.com", "babe-cave-beauty-bar.com", "boisewindowtint.com", "cafe95idaho.com", "chinakitchensandpoint.com", "infinityscreens.com", "crmframing.com", "countryautousedcars.com", "davesmithparts.com", "sonomafarmfresh.com", "desertbiotech.com", "dryridgeharriman.com", "toystoresunvalley.com", "eci-embroidery.com", "meligift.com", "europeanmobileautoworks.com", "fallcreekresortandmarina.com", "orderliliastacos.com", "gemstateprivateinvestigations.com", "harriswindows.net", "hauntedhollowpocatello.com", "heartwoodsandpoint.com", "helinamaries.com", "holidayfuture.com", "humeshandyman.com", "i84motorinn.com", "idahooutbackadventures.com", "impressedcoffeeco.com", "jcpitcrew.com", "kidz-connection.com", "lammcocpa.com", "lctreeservicellc.com", "ldasecurity.com", "shopsettings.com", "legendsboise.com", "libertyconstructionanddesigns.com", "lissaslearningladder.com", "thelowmaninn.com", "lowmanyurts.com", "lutherheights.org", "millersminiacres.com", "misterstandman.com", "moscowtreefarm.com", "usda.gov", "mountainviewservice.com", "nampahomeimprovement.com", "north-91.com", "northwestpizzacompany.com", "northwestplanthealthcare.com", "ohhoneybeestroandapiaries.com", "protrustwaterdamage.com", "landscapingsandpoint.com", "ozziesshoes.com", "usedcars-pocatello.com", "panteramarket2.com", "panteramarket.com", "patriciamariecrafts.com", "pingman.com", "platosclosetboise.com", "poweraudiovideo.com", "priestlaketech.com", "professionalframeandgallery.com", "professionalpumpservices.com", "profitsrn.com", "profotofix.com", "radcurbside.com", "rigginsrodeo.com", "polsontheatres.com", "visitrootshair.com", "rootslandcrew.com", "rolfsandpoint.com", "sarah-jacobson.com", "severnwinkle.com", "silverautollc.com", "silverbridgecpas.com", "slidingsaussies.com", "slimchickens.com", "truckandautoworks.com", "stjoeriverhideaway.com", "sterlinglewiston.com", "cdajewelry.com", "sunvalleyart.com", "svanimal.com", "sunvalleyfabric.com", "sunvalleygardencenter.com", "sunvalleygifts.com", "cornercafepf.com", "thecosmeticheart.com", "thejewelrybar-sandpoint.com", "thejumparoundidaho.com", "theprofitgameplan.com", "theshopgrooming.com", "shredderboise.com", "thevillagebakerycda.com", "thorcocda.com", "nativeseedfarm.com", "idahorenaissancefaire.com", "thorntonheatingandsheetmetal.com", "thorogold.com", "unionmarket.com", "untappedhealth.com", "upfab.co", "upnorthdistillery.com", "upthecreekhvac.com", "upgradeexcavation.com", "upliftskinboutique.com", "upliftstrengthandfitness.com", "upliftedgym.com", "uppervalleyvet.com", "urbantalent.com", "uscombustion.com", "usatuff.com", "utaraidaho.com", "walltentshop.com", "weldonfarms.com", "westonelogistics.com", "shopced.com", "basecampaviation.com", "bearriverrifleman.com", "clheilman.com", "camillebeckman.com", "cedardayspasandpoint.com", "comptonwoodcraft.com", "dykman.com", "ejkidsthetoystore.com", "festivalatsandpoint.com", "floorshowsandpoint.com", "flowersroxannebohman.com"
-        ]
-      }'
-
-curl -X POST http://localhost:8000/spider/domains/add \
-  -H "Content-Type: application/json" \
-  -d '{
-        "domains": [
-           "vazquezconstructionservicesllc.com", "idahoveterinarysurgery.com", "vogelappraisal.net"
-        ]
-      }'
-
-curl http://localhost:8000/spider/status
-curl http://localhost:8000/spider/domains
-curl http://localhost:8000/spider/config/get
-
-
-curl http://localhost:8000/spider/stop
-
-
-vazquezconstructionservicesllc.com
-idahoveterinarysurgery.com
-vogelappraisal.net 
-vogue-drycleaning.com
-deskydoo.com
-"""
 
 
 ## GLOBAL VARIABLES
@@ -263,11 +231,7 @@ def run_spider():
         print(f"[ERROR] Spider failed: {e}")
 
 
-
-
-
-
-
+### FASTAPI METHODS
 @app.post("/spider/domains/add")
 async def add_domains(request: DomainAddRequest):
     global spider_instance  # assuming you have a single global spider instance

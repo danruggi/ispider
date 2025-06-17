@@ -78,3 +78,4 @@ logs/
 
 .git_local_repo_credentials
 UPDATE_PIP.md
+curl_calls.md
