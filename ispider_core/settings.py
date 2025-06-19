@@ -60,6 +60,11 @@ WEBSITES_MAX_DEPTH = 2
 # Adding this check under a lock could slow things down and needs further testing.
 MAX_PAGES_POR_DOMAIN = 5000
 
+# Milliseconds delay on the same domain
+# Don't consider it super safe, since this doesn't consider timeouts in calls
+# And time for the server to answer
+DELAY_DOMAIN_MILL = 1000
+
 # Attempt to exclude certain file types.
 # Also inspects the first bytes of content for commonly excluded file types,
 # even if the URL doesn't have a typical file extension.

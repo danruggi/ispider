@@ -26,11 +26,12 @@ def queue_in_srv(
 
     try:
         while True:
+            time.sleep(0.05)
+            logger.info("Qin")
             # Queue management every ~5 seconds
             if time.time() - t0 > 5:
                 if script_controller['running_state'] == 0:
                     logger.info("Closing queue_in_srv")
-                    # logger.info(f"TOT INSERTED (DURLS): {len(durls)}")
                     break
                 t0 = time.time()
 
@@ -43,6 +44,7 @@ def queue_in_srv(
                     # Verify if in seen
                     if seen_filter.req_in_seen(reqA):
                         dom_stats.reduce_missing(reqA[2])
+                        dom_stats.reduce_total(reqA[2])
                         continue
                     #--------------------
                 except Empty:
@@ -67,6 +69,8 @@ def queue_in_srv(
                     qin.put(el)
 
                 to_insert.clear()
+
+            time.sleep(5)
 
     except KeyboardInterrupt:
         logger.warning(f"Keyboard Interrupt received. Missing to insert: {len(to_insert)}")

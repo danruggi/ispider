@@ -48,6 +48,7 @@ def call_and_manage_resps(
         try:
             script_controller['bytes'] += resp['num_bytes_downloaded']
             dom_stats.qstats.put({"dom_tld": dom_tld, "key": "bytes", "value": resp['num_bytes_downloaded'], "op": "sum"})
+            dom_stats.qstats.put({"dom_tld": dom_tld, "key": "last_status_code", "value": resp['status_code'], "op": "set"})
         except Exception as e:
             logger.warning(e)
             pass
@@ -171,7 +172,16 @@ def unified(mod, conf, exclusion_list, seen_filter,
                 dom_stats.reduce_missing(dom_tld)
                 logger.warning(f"{dom_tld} excluded {url}")
                 continue
-                
+            
+            last_call = dom_stats.dom_last_call.get(dom_tld)
+            if last_call:
+                elapsed_ms = (datetime.now() - last_call).total_seconds() * 1000
+                if elapsed_ms < conf['DELAY_DOMAIN_MILL']:
+                    qout.put(reqA)
+                    time.sleep(0.01) # Avoid CPU spin // some better idea?
+                    continue  # Skip this domain, not enough time has passed
+            dom_stats.set_last_call(dom_tld)
+
             urls.append(reqA)
             
             if len(urls) >= conf['ASYNC_BLOCK_SIZE'] or qin.qsize() == 0:

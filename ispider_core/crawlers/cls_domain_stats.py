@@ -1,4 +1,5 @@
 import queue
+from datetime import datetime 
 
 class SharedDomainStats:
     def __init__(self, manager, lock, qstats=None):
@@ -13,7 +14,7 @@ class SharedDomainStats:
     def add_domain(self, dom_tld):
         self.dom_missing[dom_tld] = 0
         self.dom_total[dom_tld] = 0
-        self.dom_last_call[dom_tld] = 0
+        self.dom_last_call[dom_tld] = None
         self.dom_engine[dom_tld] = None
         self.local_stats[dom_tld] = {}
 
@@ -22,6 +23,12 @@ class SharedDomainStats:
             return
         with self.lock:
             self.dom_missing[dom_tld] -= 1
+
+    def reduce_total(self, dom_tld):
+        if dom_tld not in self.dom_missing:
+            return
+        with self.lock:
+            self.dom_total[dom_tld] -= 1
 
     def add_missing_total(self, dom_tld):
         if dom_tld not in self.dom_missing:
@@ -32,6 +39,13 @@ class SharedDomainStats:
             self.dom_missing[dom_tld] += 1
             self.dom_total[dom_tld] += 1
 
+    def set_last_call(self, dom_tld):
+        if dom_tld not in self.dom_last_call:
+            return
+        with self.lock:
+            self.dom_last_call[dom_tld] = datetime.now()
+
+        
     def get_finished_domains(self):
         return [k for k, v in self.dom_missing.items() if v == 0]
 
@@ -78,6 +92,9 @@ class SharedDomainStats:
         try:
             while True:
                 item = self.qstats.get_nowait()
+
+                # print(item)
+                
                 dom_tld = item["dom_tld"]
                 k = item["key"]
                 v = item["value"]

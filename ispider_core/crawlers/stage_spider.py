@@ -105,9 +105,9 @@ def call_and_manage_resps(
                 elif len(links) > remaining:
                     links = links[:remaining]  # Limit to remaining space
 
-                dom_stats.add_missing_total(dom_tld)
                 
                 for link in links:
+                    dom_stats.add_missing_total(dom_tld)
                     qout.put((link, 'internal_url', dom_tld, 0, depth+1, current_engine))
 
         try:

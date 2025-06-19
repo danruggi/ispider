@@ -38,23 +38,30 @@ def save_finished(script_controller, dom_stats, lock, conf):
 
     try:
         while True:
-            time.sleep(120)
+            logger.info("save")
+
+            if not script_controller['running_state']:
+                logger.info("Closing saved_finished")
+                break
 
             # Running State Check
             if script_controller['running_state'] == 1:
                 logger.debug("** SAVE FINISHED - NOT READY YET")
+                time.sleep(5)
                 continue
 
-            last_saved_delay = time.time() - t0
-            if last_saved_delay < 180 and script_controller['running_state'] != 0:
-                continue  # Wait longer before saving
+            else:
 
-            logger.info(f"Saving the finished state after {round(last_saved_delay)} seconds")
-            save_pickle_file()
+                tdiff = time.time() - t0
+                if tdiff <= 180:
+                    time.sleep(5)
+                    continue
+                t0 = time.time()
 
-            if script_controller['running_state'] == 0:
-                logger.info("closing saved_finished")
-                break
+                logger.info(f"Saving the finished state after {round(tdiff)} seconds")
+                save_pickle_file()
+
+            time.sleep(5)
 
     except KeyboardInterrupt:
         logger.warning("Keyboard Interrupt received. Skipping save operation.")

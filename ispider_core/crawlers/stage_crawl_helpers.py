@@ -50,7 +50,7 @@ def robots_sitemaps_crawl(c, dom_stats, engine, conf, logger, qout):
 
                     if sitemap_url in robots_sitemaps:
                         continue
-                        
+                    
                     robots_sitemaps.add(sitemap_url)
                     dom_stats.add_missing_total(dom_tld)
                     qout.put((sitemap_url, 'sitemap', dom_tld, 0, 1, engine))
@@ -66,5 +66,6 @@ def robots_sitemaps_crawl(c, dom_stats, engine, conf, logger, qout):
         for sitemap_url in sm_urls:
             if depth > conf['SITEMAPS_MAX_DEPTH']:
                 continue
+
             dom_stats.add_missing_total(dom_tld)
             qout.put((sitemap_url, 'sitemap', dom_tld, 0, depth+1, engine))

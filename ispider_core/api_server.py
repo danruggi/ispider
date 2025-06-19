@@ -50,62 +50,46 @@ global_server = None
 shutdown_event = threading.Event()
 
 # CLASSES
+import threading
+import time
+from fastapi import FastAPI
+import uvicorn
+
 class Server(uvicorn.Server):
-    
-    def install_signal_handlers(self):
-        pass
+    def __init__(self, config):
+        super().__init__(config)
+        self._started_evt = threading.Event()
 
     @contextlib.contextmanager
     def run_in_thread(self):
-        thread = threading.Thread(target=self.run)
+        # Start server thread
+        thread = threading.Thread(target=self._run_wrapper, daemon=True)
         thread.start()
+        # Block until server loop actually starts
+        self._started_evt.wait()
         try:
-            while not self.started:
-                print("STARTING")
-                time.sleep(1e-3)
             yield
-            print("STARTED")
         finally:
+            # Signal shutdown and wait for thread
             self.should_exit = True
             thread.join()
 
-    def run(self, sockets=None):
-        print("[Server.run] Starting run()")
-        def wrapper():
-            self.started = True
-            print("[Server.run] Marked started = True")
-            return self.serve(sockets=sockets)
-
-        return asyncio.run(wrapper())
-
-    def shutdown_server(self):
-        """Directly shut down server instance and its loop"""
-        self.should_exit = True
-        self.force_exit = True  # <- ADD THIS
-        print("[Server -> shutdown] Shutting down")
-        if hasattr(self, 'server') and self.server is not None:
-            self.server.should_exit = True
-            self.server.force_exit = True
-            if hasattr(self.server, 'loop') and self.server.loop is not None:
-                self.server.loop.call_soon_threadsafe(self.server.loop.stop)  # <- force asyncio loop to break
+    def _run_wrapper(self):
+        # Mark started before entering serve
+        self._started_evt.set()
+        super().run()
 
     def run_and_wait(self):
-        """Start server in thread, wait for shutdown_event, then clean up."""
         with self.run_in_thread():
-            print("[main] Server started")
+            print("[run_and_wait] Server started")
             try:
                 shutdown_event.wait()
             except KeyboardInterrupt:
-                print("Keyboard interrupt received")
+                print("[run_and_wait] Keyboard interrupt received")
             finally:
-                try:
-                    print("Shutting down server…")
-                    close_spider()
-                    self.shutdown_server()
-                except Exception as e:
-                    print(f"Possibly not a clen shutdown {e}")
-        print("Server fully shut down")
-
+                print("[run_and_wait] Shutting down server…")
+                close_spider()
+                self.shutdown_server()
 
 
 class SpiderConfig(BaseModel):
@@ -113,8 +97,8 @@ class SpiderConfig(BaseModel):
     stage: Optional[str] = None
     user_folder: str = "~/.ispider/"
     log_level: str = "DEBUG"
-    pools: int = 4
-    async_block_size: int = 4
+    pools: int = 2
+    async_block_size: int = 2
     maximum_retries: int = 2
     codes_to_retry: List[int] = [430, 503, 500, 429]
     engines: List[str] = ["httpx", "curl"]
@@ -147,13 +131,16 @@ async def lifespan(app: FastAPI):
                 ).start()
             except ValueError:
                 print("Invalid ISP_UI_PID format")
-                
+        
+
         # Spider initialization
         config = SpiderConfig(
             domains=[],
             stage="unified",
-            user_folder="/Volumes/Sandisk2TB/test_business_scraper_22"
         )
+
+        if isp_out_folder := os.getenv("ISP_OUT_FOLDER"):
+            config.user_folder = isp_out_folder
 
         spider_config = config
         spider_instance = ISpider(domains=config.domains, stage=config.stage, **config.model_dump(exclude={"domains", "stage"}))
@@ -163,9 +150,13 @@ async def lifespan(app: FastAPI):
         threading.Thread(target=run_spider, daemon=True).start()
 
         yield
+        print("[lifespan] Finished")
+
 
     except asyncio.CancelledError:
+        # We can't avoid this error. It's part of uvicorn/starlette/asyncio
         print("[lifespan] ⚠️ Cancelled -- Error during shutdown — safe to ignore")
+
     finally:
         close_spider()
         if not shutdown_event.is_set():
@@ -188,7 +179,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 
 def ui_watchdog(ui_pid):
@@ -250,8 +240,8 @@ async def add_domains(request: DomainAddRequest):
     return {"message": "Domains added successfully", "added_domains": new_domains}
 
 
-@app.get("/spider/domains")
-async def get_domains():
+@app.get("/spider/domains/list")
+async def get_domains_list():
     global spider_instance
     if not spider_instance or not spider_instance.shared_dom_stats:
         return {"domains": []}
@@ -261,43 +251,44 @@ async def get_domains():
     return {"domains": domains}
 
 
-@app.get("/spider/status")
-async def get_status():
+@app.get("/spider/domains")
+async def get_domains():
     global spider_instance
-
     dom_stats = spider_instance.shared_dom_stats
     if dom_stats is None:
         raise HTTPException(status_code=500, detail="Domain stats not available")
 
-    running_time = time.time() - start_time if start_time else 0
-
-    status = {'script_controller': spider_instance.shared_script_controller}
-
+    status = {}
     with dom_stats.lock:
-        status['domains'] = {}
         for dom in dom_stats.dom_missing.keys():
+            missing_pages = dom_stats.dom_missing[dom]
+            total_pages = dom_stats.dom_total[dom]
             try:
                 progress = round(((dom_stats.dom_total[dom]-dom_stats.dom_missing[dom])/dom_stats.dom_total[dom]), 2)
             except:
                 progress = 0
 
-            status['domains'][dom] = {
+            status[dom] = {
                 "domain": dom,
                 "status": "Finished" if dom_stats.dom_missing[dom] == 0 else "Running",
                 "progress": progress,
                 "speed": 0,
                 "pagesFound": dom_stats.dom_total[dom],
+                "pagesDownloaded": dom_stats.dom_total[dom] - dom_stats.dom_missing[dom],
                 "hasRobot": dom_stats.local_stats[dom].get('has_robot', False),
                 "hasSitemaps": dom_stats.local_stats[dom].get('has_sitemaps', False),
+                
+                "lastCall": dom_stats.dom_last_call.get(dom).isoformat(timespec='seconds') + "Z" if dom_stats.dom_last_call.get(dom) else None,
+                "lastStatus": dom_stats.local_stats.get(dom, 0).get('last_status_code', 0),
+                
                 "bytes": dom_stats.local_stats[dom].get('bytes', 0),
-                "lastUpdated": datetime.utcnow().isoformat() + "Z",
                 "missing": dom_stats.dom_missing[dom],
                 "total": dom_stats.dom_total[dom],
-                "last_call": dom_stats.dom_last_call.get(dom, 0),
-                "engine": dom_stats.dom_engine.get(dom)
+                "engine": dom_stats.dom_engine.get(dom),
             }
 
     return status
+
 
 
 @app.get("/spider/config/get", response_model=SpiderConfig)
@@ -336,14 +327,28 @@ async def stop_spider():
     close_spider()
     return {"message": "Stop signal sent"}
 
+@app.get("/spider/status")
+async def spider_status():
+    global spider_instance, spider_status
+    if spider_status == "running" and spider_instance:
+        return {"running": True}    
+
+    raise HTTPException(status_code=503, detail="Spider not running")
+
 
 if __name__ == "__main__":
+    ''' 
+    Not used for the actual process, 
+    everything is called in Server -> run_and_wait
+    This is just for direct call 
+    python api_server.py
+    '''
     config = uvicorn.Config(
         app,
         host="0.0.0.0",
         port=8000,
         timeout_keep_alive=5,
-        access_log=False
+        access_log=True
     )
     server = Server(config)
 
@@ -352,10 +357,11 @@ if __name__ == "__main__":
         try:
             shutdown_event.wait()
         except KeyboardInterrupt:
-            print("Keyboard interrupt received")
+            print("[main] Keyboard interrupt received")
         finally:
-            print("Shutting down server…")
+            print("[main] Shutting down server…")
             close_spider()
-            server.shutdown_server()
+            if not shutdown_event.is_set():
+                shutdown_event.set()
 
-    print("Server fully shut down")
+    print("[main] Server fully shut down")

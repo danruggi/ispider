@@ -16,6 +16,9 @@ import time
 from itertools import repeat
 import threading
 
+import os
+import pickle
+
 from multiprocessing.managers import BaseManager
 
 class MyManager(BaseManager):
@@ -63,29 +66,44 @@ class BaseCrawlController:
         self.processes = []
 
     def enqueue_new_domains(self, queue_out_handler):
-        while self.shared_script_controller['running_state']:  # Controlled shutdown
-            if self.shared_new_domains:
-                new_domains = list(self.shared_new_domains)
-                while self.shared_new_domains:
-                    self.shared_new_domains.pop(0)
-                self.logger.info(f"Adding {len(new_domains)} new domain(s) dynamically.")
-                queue_out_handler.conf['domains'] = new_domains
-                queue_out_handler.fullfill(self.stage)
-            time.sleep(3)
-        self.logger.info("Closing enqueue_new_domains")
+        try:
+            while self.shared_script_controller['running_state']:
+                self.logger.info("enq")
 
+                try:
+                    if self.shared_new_domains:
+                        new_domains = list(self.shared_new_domains)
+                        while self.shared_new_domains:
+                            self.shared_new_domains.pop(0)
+                        self.logger.info(f"Adding {len(new_domains)} new domain(s) dynamically.")
+                        queue_out_handler.conf['domains'] = new_domains
+                        queue_out_handler.fullfill(self.stage)
+                except (EOFError, KeyError, BrokenPipeError) as e:
+                    self.logger.info(f"Shared proxy no longer available, exiting enqueue_new_domains thread: {e}")
+                    break
+                time.sleep(3)
+            self.logger.info("Closing enqueue_new_domains")
+        except KeyboardInterrupt:
+            self.logger.warning("Keyboard Interrupt received. Closing the enqueue manager")
+            
     def flush_stats_loop(self):
-        while self.shared_script_controller['running_state']:
-            try:
-                self.shared_dom_stats.flush_qstats()
-            except EOFError:
-                self.logger.warning(f"flush_stats_loop closed by EOF")
-                break
-            except Exception as e:
-                self.logger.warning(f"Failed to flush stats: {e}")
-            time.sleep(1)  # Flush every 1 second, adjust as needed
-        self.logger.info("Closing flush_stats_loop")
-        
+        try:
+            while self.shared_script_controller['running_state']:
+                self.logger.info("stats")
+
+                try:
+                    self.shared_dom_stats.flush_qstats()
+                except EOFError:
+                    self.logger.warning(f"flush_stats_loop closed by EOF")
+                    break
+                except Exception as e:
+                    self.logger.warning(f"Failed to flush stats: {e}")
+                time.sleep(1)  # Flush every 1 second, adjust as needed
+            self.logger.info("Closing flush_stats_loop")
+        except KeyboardInterrupt:
+            logger.warning("Keyboard Interrupt received. Closing the flush stats manager")
+
+
     def _get_manager_seen_filter(self):
         m = SeenFilterManager()
         m.start()
@@ -101,6 +119,50 @@ class BaseCrawlController:
             from ispider_core.engines import mod_seleniumbase
             mod_seleniumbase.prepare_chromedriver_once()
 
+    # def save_queues(self):
+    #     """Save queue states to disk"""
+    #     data_path = self.conf['path_data']
+        
+    #     # Save qin
+    #     qin_items = []
+    #     while not self.shared_qin.empty():
+    #         qin_items.append(self.shared_qin.get())
+    #     with open(os.path.join(data_path, f"{self.stage}_qin_state.pkl"), 'wb') as f:
+    #         pickle.dump(qin_items, f)
+        
+    #     # Save qout
+    #     qout_items = []
+    #     while not self.shared_qout.empty():
+    #         qout_items.append(self.shared_qout.get())
+    #     with open(os.path.join(data_path, f"{self.stage}_qout_state.pkl"), 'wb') as f:
+    #         pickle.dump(qout_items, f)
+        
+    #     # Restore items to queues (keep in memory during shutdown)
+    #     for item in qin_items:
+    #         self.shared_qin.put(item)
+    #     for item in qout_items:
+    #         self.shared_qout.put(item)
+
+
+    # def restore_queues(self):
+    #     """Restore queue states from disk if available"""
+    #     data_path = self.conf['path_data']
+    #     qin_file = os.path.join(data_path, f"{self.stage}_qin_state.pkl")
+    #     qout_file = os.path.join(data_path, f"{self.stage}_qout_state.pkl")
+        
+    #     if os.path.exists(qin_file):
+    #         with open(qin_file, 'rb') as f:
+    #             qin_items = pickle.load(f)
+    #         for item in qin_items:
+    #             self.shared_qin.put(item)
+    #         os.remove(qin_file)
+        
+    #     if os.path.exists(qout_file):
+    #         with open(qout_file, 'rb') as f:
+    #             qout_items = pickle.load(f)
+    #         for item in qout_items:
+    #             self.shared_qout.put(item)
+    #         os.remove(qout_file)
 
     def _start_threads(self):
         self.logger.debug("Starting queue input thread...")
@@ -188,6 +250,9 @@ class BaseCrawlController:
             dom_tld_finished = resume.ResumeState(self.conf, self.stage).load_finished_domains()
             self.logger.info(f"Tot already Finished: {len(dom_tld_finished)}")
 
+
+            # self.restore_queues()
+
             self.queue_out_handler = cls_queue_out.QueueOut(
                 self.conf, 
                 self.shared_dom_stats, 
@@ -217,7 +282,7 @@ class BaseCrawlController:
 
         finally:
             unfinished = self.shared_dom_stats.get_unfinished_domains()
-            self.logger.info(f"Unfinished: {unfinished}")
+            # self.logger.info(f"Unfinished: {unfinished}")
             self.logger.info(f"*** Done {self.shared_script_controller['tot_counter']} PAGES")
             # self._shutdown()
             return True
@@ -239,6 +304,9 @@ class BaseCrawlController:
         # join flush thread (missing)
         if self.flush_thread is not None:
             self.flush_thread.join()
+
+        # self.save_queues()
+        self.logger.info("Queue states saved")
 
         self.logger.info("All threads and processes stopped.")
 

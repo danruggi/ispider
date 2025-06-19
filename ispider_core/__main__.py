@@ -17,14 +17,17 @@ def main():
 
     if args.stage == 'api':
 
-        print("🚀 Starting API server...")
+        print("[iSpider][main] 🚀 Starting API server...")
         import uvicorn
 
         if args.ui_pid:
-            print(f"[iSpider] 💻 UI PID received: {args.ui_pid}")
+            print(f"[iSpider][main] 💻 UI PID received: {args.ui_pid}")
             os.environ["ISP_UI_PID"] = str(args.ui_pid)
+        if args.out_folder:
+            print(f"[iSpider][main] 💻 OUT FOLDER received: {args.out_folder}")
+            os.environ["ISP_OUT_FOLDER"] = str(args.out_folder)
 
-        config = uvicorn.Config(app, host="0.0.0.0", port=8000, access_log=False)
+        config = uvicorn.Config(app, host="0.0.0.0", port=8000, access_log=True)
         server = Server(config)
         server.run_and_wait()
 
@@ -60,7 +63,8 @@ def main():
         'CODES_TO_RETRY': [430, 503, 500, 429],
         'CURL_INSECURE': True,
         'ENGINES': ['httpx', 'curl'],
-        'CRAWL_METHODS': ['robots', 'sitemaps'],
+        'CRAWL_METHODS': [],
+        # 'CRAWL_METHODS': ['robots', 'sitemaps'],
         'LOG_LEVEL': 'INFO',
     }
 

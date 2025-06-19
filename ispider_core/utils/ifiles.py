@@ -31,8 +31,11 @@ def dump_to_file(c, conf):
     elif rd == 'internal_url':
         c['fname'] = "/".join(dump_fname.split("/")[-2:])
 
-    with open(dump_fname, 'wb') as f:
-        f.write(c['content'])
+    try:
+        with open(dump_fname, 'wb') as f:
+            f.write(c['content'])
+    except:
+        return False
     return True
 
 
@@ -74,7 +77,7 @@ def get_dump_file_name(rd, url, dom_tld, conf):
         fn = re.sub(r'_+', '_', fn).strip("._ ")
 
         # Compute the max filename length based on MAX_PATH (typically 260 on Windows)
-        MAX_PATH = 250 if os.name == 'nt' else 500  # Linux/macOS typically much higher
+        MAX_PATH = 250  # Linux/macOS typically much higher
         reserved = len(os.path.abspath(path_dumps)) + len(os.sep) + len("_.html")
         max_len = MAX_PATH - reserved
 
