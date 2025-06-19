@@ -68,7 +68,6 @@ class BaseCrawlController:
     def enqueue_new_domains(self, queue_out_handler):
         try:
             while self.shared_script_controller['running_state']:
-                self.logger.info("enq")
 
                 try:
                     if self.shared_new_domains:
@@ -89,7 +88,6 @@ class BaseCrawlController:
     def flush_stats_loop(self):
         try:
             while self.shared_script_controller['running_state']:
-                self.logger.info("stats")
 
                 try:
                     self.shared_dom_stats.flush_qstats()

@@ -30,7 +30,6 @@ def stats_srv(
 
     try:
         while True:
-            logger.info("stats")
 
             if not shared_script_controller['running_state']:
                 logger.info("Closing stats")

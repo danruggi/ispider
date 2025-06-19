@@ -38,7 +38,6 @@ def save_finished(script_controller, dom_stats, lock, conf):
 
     try:
         while True:
-            logger.info("save")
 
             if not script_controller['running_state']:
                 logger.info("Closing saved_finished")

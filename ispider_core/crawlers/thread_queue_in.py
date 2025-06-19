@@ -27,7 +27,6 @@ def queue_in_srv(
     try:
         while True:
             time.sleep(0.05)
-            logger.info("Qin")
             # Queue management every ~5 seconds
             if time.time() - t0 > 5:
                 if script_controller['running_state'] == 0:
