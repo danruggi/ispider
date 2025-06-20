@@ -76,11 +76,11 @@ def call_and_manage_resps(
         # **********************
         # ERROR CORRECTION / RETRIES
         if http_retries.should_retry(resp, conf, logger, qout, mod):
+            logger.debug(f"Activated retry {url}")
             continue
 
-
         # if status_code != 200:
-        logger.debug(f"[{mod}] [{status_code}] -- D:{depth} -- R: {retries} -- [{dom_tld}] {url}")
+        logger.debug(f"[{mod}] [{status_code}] -- D:{depth} -- R: {retries} -- E:{current_engine} -- [{dom_tld}] {url}")
 
         # ***********************
         # NEXT ACTIONS MANAGEMENT

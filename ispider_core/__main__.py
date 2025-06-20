@@ -26,7 +26,9 @@ def main():
 
         spider_config = SpiderConfig(
             user_folder = args.out_folder,
-            resume = args.resume
+            resume = args.resume,
+            pools = 32,
+            async_block_size = 8,
         )
         
         config = uvicorn.Config(app, host="0.0.0.0", port=8000, access_log=True)
