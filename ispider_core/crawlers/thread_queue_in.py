@@ -26,8 +26,7 @@ def queue_in_srv(
 
     try:
         while True:
-            time.sleep(0.05)
-            # Queue management every ~5 seconds
+            # logger.info("QueueIN Cycle")
             if time.time() - t0 > 5:
                 if script_controller['running_state'] == 0:
                     logger.info("Closing queue_in_srv")
@@ -48,15 +47,16 @@ def queue_in_srv(
                     #--------------------
                 except Empty:
                     pass
+            
 
             if reqA is not None:
                 to_insert.append(reqA)
 
-            if len(to_insert) < Q_BLOCK_MIN and qout.qsize() == 0 and not qin.empty():
-                # logger.debug(f"Qwait case 1 --> {len(to_insert)} -- {Q_BLOCK_MIN} -- {qout.qsize()} -- {qin.empty()}")
-                time.sleep(2)  # Lower sleep time for responsiveness
+            if len(to_insert) < Q_BLOCK_MIN and qout.empty():
+                # logger.debug(f"Qwait case 1 --> INS: {len(to_insert)} -- BLOCK: {Q_BLOCK_MIN} -- OUT: {qout.qsize()} -- IN: {qin.qsize()}")
+                time.sleep(.5)  # Lower sleep time for responsiveness
 
-            if len(to_insert) >= Q_BLOCK_MAX or qout.qsize() == 0:
+            if len(to_insert) >= Q_BLOCK_MAX or qout.empty():
                 while qin.qsize() >= Q_MAX // 2:
                     time.sleep(2)
 
@@ -69,8 +69,9 @@ def queue_in_srv(
 
                 to_insert.clear()
 
-            time.sleep(5)
 
     except KeyboardInterrupt:
         logger.warning(f"Keyboard Interrupt received. Missing to insert: {len(to_insert)}")
         logger.warning("Keyboard Interrupt received. Closing the q_in queue manager")
+    except Exception as e:
+        logger.fatal(f"Fatal error in qproc: {e}")

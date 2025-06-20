@@ -114,6 +114,9 @@ class ISpider:
 
         self.logger.info(f"Using output folder: {self._get_user_folder()}")
         
+        # print(self.conf)
+        # quit()
+        
         if self.stage:
             self.logger.info(f"*** Running Stage: {self.stage}")
             self.conf['method'] = self.stage
@@ -139,3 +142,12 @@ class ISpider:
             self.manager.shutdown()
 
         self.logger.info("Ispider shutdown complete")
+
+    def __enter__(self):
+        """Enter context manager and return self."""
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        """Automatically call shutdown when leaving 'with' block."""
+        self.shutdown()
+        

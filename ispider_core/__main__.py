@@ -6,7 +6,7 @@ from ispider_core.utils.menu import menu
 from ispider_core.ispider import ISpider
 import subprocess
 
-from ispider_core.api_server import app, Server, close_spider
+from ispider_core.api_server import app, Server, SpiderConfig
 
 def main():
     args = menu()
@@ -23,12 +23,14 @@ def main():
         if args.ui_pid:
             print(f"[iSpider][main] 💻 UI PID received: {args.ui_pid}")
             os.environ["ISP_UI_PID"] = str(args.ui_pid)
-        if args.out_folder:
-            print(f"[iSpider][main] 💻 OUT FOLDER received: {args.out_folder}")
-            os.environ["ISP_OUT_FOLDER"] = str(args.out_folder)
 
+        spider_config = SpiderConfig(
+            user_folder = args.out_folder,
+            resume = args.resume
+        )
+        
         config = uvicorn.Config(app, host="0.0.0.0", port=8000, access_log=True)
-        server = Server(config)
+        server = Server(config, spider_config)
         server.run_and_wait()
 
         return
@@ -65,7 +67,8 @@ def main():
         'ENGINES': ['httpx', 'curl'],
         'CRAWL_METHODS': [],
         # 'CRAWL_METHODS': ['robots', 'sitemaps'],
-        'LOG_LEVEL': 'INFO',
+        'LOG_LEVEL': 'DEBUG',
+        'RESUME': args.resume,
     }
 
     spider = ISpider(domains=domains, stage=args.stage, **config_overrides)

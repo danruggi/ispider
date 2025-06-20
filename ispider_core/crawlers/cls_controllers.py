@@ -1,6 +1,7 @@
+""" crawlers/cls_controller.py """
 from ispider_core.utils.logger import LoggerFactory
 from ispider_core.utils import efiles
-from ispider_core.utils import resume
+from ispider_core.utils import state_manager
 
 from ispider_core.crawlers import cls_queue_out
 from ispider_core.crawlers import cls_seen_filter
@@ -37,6 +38,7 @@ class BaseCrawlController:
         self.conf = conf
         self.stage = conf['method']  # Reflect the stage
         self.logger = LoggerFactory.create_logger(self.conf, "ispider.log", stdout_flag=True)
+        self.dom_tld_finished = []
         
         # Locks
         self.shared_lock = self.manager.Lock()
@@ -62,13 +64,14 @@ class BaseCrawlController:
         self.shared_qin = self.manager.Queue(maxsize=conf['QUEUE_MAX_SIZE'])
         self.shared_qout = self.lifo_manager.LifoQueue()
 
+        self.resume_state = state_manager.ResumeState(self.conf, self)
+        self.save_state = state_manager.SaveState(self.conf, self)
 
         self.processes = []
 
     def enqueue_new_domains(self, queue_out_handler):
         try:
             while self.shared_script_controller['running_state']:
-
                 try:
                     if self.shared_new_domains:
                         new_domains = list(self.shared_new_domains)
@@ -80,6 +83,8 @@ class BaseCrawlController:
                 except (EOFError, KeyError, BrokenPipeError) as e:
                     self.logger.info(f"Shared proxy no longer available, exiting enqueue_new_domains thread: {e}")
                     break
+                except Exception as e:
+                    self.logger.error(e)
                 time.sleep(3)
             self.logger.info("Closing enqueue_new_domains")
         except KeyboardInterrupt:
@@ -117,50 +122,6 @@ class BaseCrawlController:
             from ispider_core.engines import mod_seleniumbase
             mod_seleniumbase.prepare_chromedriver_once()
 
-    # def save_queues(self):
-    #     """Save queue states to disk"""
-    #     data_path = self.conf['path_data']
-        
-    #     # Save qin
-    #     qin_items = []
-    #     while not self.shared_qin.empty():
-    #         qin_items.append(self.shared_qin.get())
-    #     with open(os.path.join(data_path, f"{self.stage}_qin_state.pkl"), 'wb') as f:
-    #         pickle.dump(qin_items, f)
-        
-    #     # Save qout
-    #     qout_items = []
-    #     while not self.shared_qout.empty():
-    #         qout_items.append(self.shared_qout.get())
-    #     with open(os.path.join(data_path, f"{self.stage}_qout_state.pkl"), 'wb') as f:
-    #         pickle.dump(qout_items, f)
-        
-    #     # Restore items to queues (keep in memory during shutdown)
-    #     for item in qin_items:
-    #         self.shared_qin.put(item)
-    #     for item in qout_items:
-    #         self.shared_qout.put(item)
-
-
-    # def restore_queues(self):
-    #     """Restore queue states from disk if available"""
-    #     data_path = self.conf['path_data']
-    #     qin_file = os.path.join(data_path, f"{self.stage}_qin_state.pkl")
-    #     qout_file = os.path.join(data_path, f"{self.stage}_qout_state.pkl")
-        
-    #     if os.path.exists(qin_file):
-    #         with open(qin_file, 'rb') as f:
-    #             qin_items = pickle.load(f)
-    #         for item in qin_items:
-    #             self.shared_qin.put(item)
-    #         os.remove(qin_file)
-        
-    #     if os.path.exists(qout_file):
-    #         with open(qout_file, 'rb') as f:
-    #             qout_items = pickle.load(f)
-    #         for item in qout_items:
-    #             self.shared_qout.put(item)
-    #         os.remove(qout_file)
 
     def _start_threads(self):
         self.logger.debug("Starting queue input thread...")
@@ -187,15 +148,15 @@ class BaseCrawlController:
                 self.shared_qout, 
             )))
 
-        self.logger.debug("Starting save finished thread...")
-        self.processes.append(mp.Process(
-            target=thread_save_finished.save_finished, 
-            args=(
-                self.shared_script_controller, 
-                self.shared_dom_stats, 
-                self.shared_lock, 
-                self.conf
-            )))
+        # self.logger.debug("Starting save finished thread...")
+        # self.processes.append(mp.Process(
+        #     target=thread_save_finished.save_finished, 
+        #     args=(
+        #         self.shared_script_controller, 
+        #         self.shared_dom_stats, 
+        #         self.shared_lock, 
+        #         self.conf
+        #     )))
 
         for proc in self.processes:
             proc.daemon = True
@@ -245,23 +206,22 @@ class BaseCrawlController:
             exclusion_list = efiles.load_domains_exclusion_list(self.conf, protocol=False)
             self.logger.info(f"Excluded domains total: {len(exclusion_list)}")
 
-            dom_tld_finished = resume.ResumeState(self.conf, self.stage).load_finished_domains()
-            self.logger.info(f"Tot already Finished: {len(dom_tld_finished)}")
-
-
-            # self.restore_queues()
-
+            if self.conf['RESUME']:
+                self.logger.info("Loading from resume..")
+                self.resume_state.resume_all()
+                self.logger.info(f"Tot already Finished: {len(self.dom_tld_finished)}")
+           
             self.queue_out_handler = cls_queue_out.QueueOut(
                 self.conf, 
                 self.shared_dom_stats, 
-                dom_tld_finished, 
+                self.dom_tld_finished, 
                 exclusion_list, 
                 self.logger,
                 self.shared_qout
-                )
+            )
+
             self.queue_out_handler.fullfill(self.stage)
             
-            self.logger.info(f"Loaded {self.seen_filter.bloom_len()} in seen_filter")
 
             self.logger.info("Activating seleniumbase")
             self._activate_seleniumbase()
@@ -302,6 +262,10 @@ class BaseCrawlController:
         # join flush thread (missing)
         if self.flush_thread is not None:
             self.flush_thread.join()
+
+        # Save state
+        self.logger.info("Saving state..") 
+        self.save_state.save_all()
 
         # self.save_queues()
         self.logger.info("Queue states saved")

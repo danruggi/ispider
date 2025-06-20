@@ -82,3 +82,5 @@ EXCLUDED_EXTENSIONS = [
 EXCLUDED_EXPRESSIONS_URL = [
     # r'test',
 ]
+
+RESUME = False

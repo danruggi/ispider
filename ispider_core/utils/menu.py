@@ -27,6 +27,7 @@ def create_parser():
 
     parser.add_argument('--version', action='version', version=f"%(prog)s {version_string}", help="Show program version and exit")
     parser.add_argument('--resume', action='store_true', help="Resume previous state if available")
+    parser.add_argument('--out-folder', type=str, help="Output folder")
 
     subparsers = parser.add_subparsers(dest='stage', title='Stages', help='Available stages')
 
@@ -48,7 +49,6 @@ def create_parser():
     # API subcommand
     parser_api = subparsers.add_parser('api', help='API server')
     parser_api.add_argument('--ui-pid', type=int, help="PID of the macOS UI process")
-    parser_api.add_argument('--out-folder', type=str, help="Output folder")
 
     return parser
 

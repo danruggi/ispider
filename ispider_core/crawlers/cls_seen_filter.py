@@ -73,3 +73,4 @@ class SeenFilter:
         with self.lock:
             with open(path, 'rb') as f:
                 self.bloom = BloomFilter.fromfile(f)
+

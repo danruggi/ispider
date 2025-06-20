@@ -22,23 +22,14 @@ from ispider_core.config import Settings
 from ispider_core.utils.logger import LoggerFactory
 
 
-from pathlib import Path
-
-# Create a logs directory inside /tmp or wherever is appropriate
+""" Redirect all to /tmp/spider_log """
 log_dir = Path("/tmp/ispider_logs")
 log_dir.mkdir(parents=True, exist_ok=True)
-
-# Use timestamped log file
 log_file_path = log_dir / f"ispider.log"
 log_file = open(log_file_path, "a")
-
-# Redirect stdout and stderr to file
 sys.stdout = log_file
 sys.stderr = log_file
-
 print(f"[LOGGING] Redirected output to: {log_file_path}")
-
-
 
 
 ## GLOBAL VARIABLES
@@ -49,16 +40,103 @@ start_time = None
 global_server = None
 shutdown_event = threading.Event()
 
-# CLASSES
-import threading
-import time
-from fastapi import FastAPI
-import uvicorn
+
+## LIFESPAN, must be first. 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global spider_instance, spider_config, spider_status, start_time
+    
+    # UI watchdog setup
+    try:
+        if ui_pid_str := os.getenv("ISP_UI_PID"):
+            try:
+                ui_pid = int(ui_pid_str)
+                print(f"[lifespan] 👀 Watching UI PID: {ui_pid}")
+                # Non-daemon thread for reliable cleanup
+                threading.Thread(
+                    target=ui_watchdog, 
+                    args=(ui_pid,),
+                    daemon=False
+                ).start()
+            except ValueError:
+                print("Invalid ISP_UI_PID format")
+        
+        sc = app.state.spider_config
+        print(f"[lifespan] config: {sc}")
+        
+
+        # # Spider initialization
+        # config = SpiderConfig(
+        #     domains=[],
+        #     stage="unified",
+        # )
+
+        # if isp_out_folder := os.getenv("ISP_OUT_FOLDER"):
+        #     config.user_folder = isp_out_folder
+
+        # spider_config = config
+        spider_instance = ISpider(domains=sc.domains, stage=sc.stage, **sc.model_dump(exclude={"domains", "stage"}))
+        spider_status = "initialized"
+        start_time = time.time()
+        
+        threading.Thread(target=run_spider, daemon=True).start()
+
+        yield
+        print("[lifespan] Finished")
+
+
+    except asyncio.CancelledError:
+        # We can't avoid this error. It's part of uvicorn/starlette/asyncio
+        print("[lifespan] ⚠️ Cancelled -- Error during shutdown — safe to ignore")
+
+    finally:
+        close_spider()
+        if not shutdown_event.is_set():
+            shutdown_event.set()
+
+
+app = FastAPI(
+    title="ISpider API", 
+    description="API for controlling the ISpider web crawler",
+    version="0.1.0",
+    lifespan=lifespan
+)
+# CORS configuration
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+class SpiderConfig(BaseModel):
+    domains: List[str] = []
+    stage: Optional[str] = None
+    user_folder: str = "~/.ispider/"
+    log_level: str = "DEBUG"
+    pools: int = 2
+    async_block_size: int = 2
+    maximum_retries: int = 2
+    codes_to_retry: List[int] = [430, 503, 500, 429]
+    engines: List[str] = ["httpx", "curl"]
+    crawl_methods: List[str] = ["robots", "sitemaps"]
+    max_pages_per_domain: int = 5000
+    websites_max_depth: int = 5
+    sitemaps_max_depth: int = 2
+    timeout: int = 5
+    resume: bool = False
+
+class DomainAddRequest(BaseModel):
+    domains: List[str]
 
 class Server(uvicorn.Server):
-    def __init__(self, config):
+    def __init__(self, config, spider_config: Optional[SpiderConfig] = None):
         super().__init__(config)
         self._started_evt = threading.Event()
+        self.spider_config = spider_config or SpiderConfig()
+        app.state.spider_config = self.spider_config
 
     @contextlib.contextmanager
     def run_in_thread(self):
@@ -89,96 +167,6 @@ class Server(uvicorn.Server):
             finally:
                 print("[run_and_wait] Shutting down server…")
                 close_spider()
-                self.shutdown_server()
-
-
-class SpiderConfig(BaseModel):
-    domains: List[str] = []
-    stage: Optional[str] = None
-    user_folder: str = "~/.ispider/"
-    log_level: str = "DEBUG"
-    pools: int = 2
-    async_block_size: int = 2
-    maximum_retries: int = 2
-    codes_to_retry: List[int] = [430, 503, 500, 429]
-    engines: List[str] = ["httpx", "curl"]
-    crawl_methods: List[str] = ["robots", "sitemaps"]
-    max_pages_per_domain: int = 5000
-    websites_max_depth: int = 5
-    sitemaps_max_depth: int = 2
-    timeout: int = 5
-
-class DomainAddRequest(BaseModel):
-    domains: List[str]
-
-
-## LIFESPAN
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    global spider_instance, spider_config, spider_status, start_time
-    
-    # UI watchdog setup
-    try:
-        if ui_pid_str := os.getenv("ISP_UI_PID"):
-            try:
-                ui_pid = int(ui_pid_str)
-                print(f"[lifespan] 👀 Watching UI PID: {ui_pid}")
-                # Non-daemon thread for reliable cleanup
-                threading.Thread(
-                    target=ui_watchdog, 
-                    args=(ui_pid,),
-                    daemon=False
-                ).start()
-            except ValueError:
-                print("Invalid ISP_UI_PID format")
-        
-
-        # Spider initialization
-        config = SpiderConfig(
-            domains=[],
-            stage="unified",
-        )
-
-        if isp_out_folder := os.getenv("ISP_OUT_FOLDER"):
-            config.user_folder = isp_out_folder
-
-        spider_config = config
-        spider_instance = ISpider(domains=config.domains, stage=config.stage, **config.model_dump(exclude={"domains", "stage"}))
-        spider_status = "initialized"
-        start_time = time.time()
-        
-        threading.Thread(target=run_spider, daemon=True).start()
-
-        yield
-        print("[lifespan] Finished")
-
-
-    except asyncio.CancelledError:
-        # We can't avoid this error. It's part of uvicorn/starlette/asyncio
-        print("[lifespan] ⚠️ Cancelled -- Error during shutdown — safe to ignore")
-
-    finally:
-        close_spider()
-        if not shutdown_event.is_set():
-            shutdown_event.set()
-
-
-
-app = FastAPI(
-    title="ISpider API", 
-    description="API for controlling the ISpider web crawler",
-    version="0.1.0",
-    lifespan=lifespan
-)
-# CORS configuration
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 
 def ui_watchdog(ui_pid):
@@ -194,7 +182,6 @@ def ui_watchdog(ui_pid):
             shutdown_event.set()  # Signal main thread
             break
         time.sleep(1)
-
 
 
 

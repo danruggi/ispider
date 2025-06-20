@@ -63,7 +63,41 @@ class SharedDomainStats:
 
     def get_sorted_missing(self, reverse=True):
         return dict(sorted(self.dom_missing.items(), key=lambda item: item[1], reverse=reverse))
-        
+    
+    def serialize(self) -> dict:
+        """Return a serializable dict of the current state."""
+        with self.lock:
+            return {
+                "dom_missing": dict(self.dom_missing),
+                "dom_total": dict(self.dom_total),
+                "dom_last_call": {
+                    k: v.isoformat() if v is not None else None
+                    for k, v in dict(self.dom_last_call).items()
+                },
+                "dom_engine": dict(self.dom_engine),
+                "local_stats": dict(self.local_stats),
+            }
+
+    def restore(self, state: dict):
+        """Restore the state from a previously saved dict."""
+        with self.lock:
+            self.dom_missing.clear()
+            self.dom_total.clear()
+            self.dom_last_call.clear()
+            self.dom_engine.clear()
+            self.local_stats.clear()
+
+            for k, v in state.get("dom_missing", {}).items():
+                self.dom_missing[k] = v
+            for k, v in state.get("dom_total", {}).items():
+                self.dom_total[k] = v
+            for k, v in state.get("dom_last_call", {}).items():
+                self.dom_last_call[k] = datetime.fromisoformat(v) if v is not None else None
+            for k, v in state.get("dom_engine", {}).items():
+                self.dom_engine[k] = v
+            for k, v in state.get("local_stats", {}).items():
+                self.local_stats[k] = v
+                
     def filter_and_add_links(self, dom_tld, links, max_pages):
         """Filter links to avoid exceeding max_pages, and update counters safely."""
         with self.lock:
