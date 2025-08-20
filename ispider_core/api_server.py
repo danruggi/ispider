@@ -29,7 +29,7 @@ log_file_path = log_dir / f"ispider.log"
 log_file = open(log_file_path, "a")
 sys.stdout = log_file
 sys.stderr = log_file
-print(f"[LOGGING] Redirected output to: {log_file_path}")
+# print(f"[LOGGING] Redirected output to: {log_file_path}")
 
 
 ## GLOBAL VARIABLES
@@ -313,6 +313,7 @@ async def set_config(new_config: SpiderConfig):
 async def stop_spider():
     close_spider()
     return {"message": "Stop signal sent"}
+    
 
 @app.get("/spider/status")
 async def spider_status():

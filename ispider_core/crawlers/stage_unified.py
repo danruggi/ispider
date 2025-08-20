@@ -198,6 +198,9 @@ def unified(mod, conf, exclusion_list, seen_filter,
     except KeyboardInterrupt:
         logger.warning("Subprocess interrupted by keyboard")
 
+    except Exception as e:
+        logger.error(f"[{mod}] Error in worker: {e}")
+        
     logger.debug(f"Closing worker {mod}")
     
     return None

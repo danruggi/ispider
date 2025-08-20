@@ -29,7 +29,7 @@ def queue_in_srv(
             # logger.info("QueueIN Cycle")
             if time.time() - t0 > 5:
                 if script_controller['running_state'] == 0:
-                    logger.info("Closing queue_in_srv")
+                    logger.info(f"Closing queue_in_srv, to insert: {len(to_insert)}")
                     break
                 t0 = time.time()
 
@@ -75,3 +75,4 @@ def queue_in_srv(
         logger.warning("Keyboard Interrupt received. Closing the q_in queue manager")
     except Exception as e:
         logger.fatal(f"Fatal error in qproc: {e}")
+
