@@ -30,6 +30,8 @@ def dump_to_file(c, conf):
         c['sitemap_fname'] = "/".join(dump_fname.split("/")[-2:])
     elif rd == 'internal_url':
         c['fname'] = "/".join(dump_fname.split("/")[-2:])
+    elif rd == 'landing_page':
+        c['fname'] = "/".join(dump_fname.split("/")[-2:])
 
     try:
         with open(dump_fname, 'wb') as f:

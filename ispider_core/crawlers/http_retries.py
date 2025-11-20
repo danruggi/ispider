@@ -23,9 +23,9 @@ def should_retry(resp, conf, logger, qout, mod):
     # Retry on specific HTTP status codes
     if status_code in conf['CODES_TO_RETRY'] and retries < conf['MAXIMUM_RETRIES']:
         next_engine = engine.EngineSelector(conf['ENGINES']).next_cyclic(current_engine)
-        logger.debug(
-            f"[{mod}] [{status_code}] -- D:{depth} -- R:{retries} -- E:{current_engine} -> {next_engine} -- RETRY [{error_message}] [{dom_tld}] {url}"
-        )
+        # logger.debug(
+        #     f"[{mod}] [{status_code}] -- D:{depth} -- R:{retries} -- E:{current_engine} -> {next_engine} -- RETRY [{error_message}] [{dom_tld}] {url}"
+        # )
         time.sleep(conf['TIME_DELAY_RETRY'])
         qout.put((url, rd, dom_tld, retries + 1, depth, next_engine))
         return True
