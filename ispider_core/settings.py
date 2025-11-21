@@ -12,7 +12,7 @@ CODES_TO_RETRY = [430, 503, 500, 429]
 MAXIMUM_RETRIES = 2
 
 # Delay time (in seconds) before retrying after a failed status code
-TIME_DELAY_RETRY = 0
+# TIME_DELAY_RETRY = 0
 
 # Number of concurrent connections per process during crawling
 ASYNC_BLOCK_SIZE = 4
@@ -63,7 +63,7 @@ MAX_PAGES_POR_DOMAIN = 5000
 # Milliseconds delay on the same domain
 # Don't consider it super safe, since this doesn't consider timeouts in calls
 # And time for the server to answer
-DELAY_DOMAIN_MILL = 1000
+# DELAY_DOMAIN_MILL = 1000
 
 # Attempt to exclude certain file types.
 # Also inspects the first bytes of content for commonly excluded file types,

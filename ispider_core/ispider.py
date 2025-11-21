@@ -58,7 +58,7 @@ class ISpider:
 
         conf.update({
             'domains': domains,
-            'method': self.stage or 'landings',
+            'method': 'unified',
             **upper_kwargs  # user passed settings
         })
 
@@ -117,15 +117,10 @@ class ISpider:
         # print(self.conf)
         # quit()
         
-        if self.stage:
-            self.logger.info(f"*** Running Stage: {self.stage}")
-            self.conf['method'] = self.stage
-            self.orchestrator.run()
-
-        else:
-            self.logger.info("*** Running Unified as default")    
-            self.conf['method'] = 'unified'
-            self.orchestrator.run()
+    
+        self.logger.info("*** Running Unified as default")    
+        self.conf['method'] = 'unified'
+        self.orchestrator.run()
 
         return self._fetch_results()
 

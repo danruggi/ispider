@@ -9,7 +9,7 @@ from ispider_core.crawlers import cls_domain_stats
 from ispider_core.crawlers import thread_queue_in
 from ispider_core.crawlers import thread_stats
 from ispider_core.crawlers import thread_save_finished
-from ispider_core.crawlers import stage_crawl, stage_spider, stage_unified
+from ispider_core.crawlers import stage_unified
 
 from queue import LifoQueue
 import multiprocessing as mp
@@ -36,7 +36,7 @@ class BaseCrawlController:
     def __init__(self, manager, conf, log_file):
         self.manager = manager
         self.conf = conf
-        self.stage = conf['method']  # Reflect the stage
+        self.stage = 'unified'  # Fixed on unified
         self.logger = LoggerFactory.create_logger(self.conf, "ispider.log", stdout_flag=True)
         self.dom_tld_finished = []
         
@@ -62,7 +62,11 @@ class BaseCrawlController:
         self.queue_out_handler = None
 
         self.shared_qin = self.manager.Queue(maxsize=conf['QUEUE_MAX_SIZE'])
-        self.shared_qout = self.lifo_manager.LifoQueue()
+        self.shared_qout = self.manager.Queue()
+        # self.shared_qout = self.lifo_manager.LifoQueue()
+
+        # self.shared_qout = mp.Queue()
+        
 
         self.resume_state = state_manager.ResumeState(self.conf, self)
         self.save_state = state_manager.SaveState(self.conf, self)
@@ -120,6 +124,7 @@ class BaseCrawlController:
     def _activate_seleniumbase(self):
         if 'seleniumbase' in self.conf['ENGINES']:
             from ispider_core.engines import mod_seleniumbase
+            self.logger.info("Activating seleniumbase")
             mod_seleniumbase.prepare_chromedriver_once()
 
 
@@ -147,16 +152,6 @@ class BaseCrawlController:
                 self.shared_qin, 
                 self.shared_qout, 
             )))
-
-        # self.logger.debug("Starting save finished thread...")
-        # self.processes.append(mp.Process(
-        #     target=thread_save_finished.save_finished, 
-        #     args=(
-        #         self.shared_script_controller, 
-        #         self.shared_dom_stats, 
-        #         self.shared_lock, 
-        #         self.conf
-        #     )))
 
         for proc in self.processes:
             proc.daemon = True
@@ -221,9 +216,8 @@ class BaseCrawlController:
             )
 
             self.queue_out_handler.fullfill(self.stage)
-            
-
-            self.logger.info("Activating seleniumbase")
+    
+            # Activate seleniumbase if in crawlers options            
             self._activate_seleniumbase()
 
             self.logger.info("Starting threads")

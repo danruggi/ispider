@@ -78,6 +78,21 @@ class SharedDomainStats:
                 "local_stats": dict(self.local_stats),
             }
 
+    def increase_script_counters(self, rd, script_controller):
+        """
+        Increment the unified counters (landings/robots/sitemaps/internal_urls)
+        in a multiprocessing-safe way using the shared lock.
+        """
+        with self.lock:
+            if rd == "landing_page":
+                script_controller["landings"] = script_controller.get("landings", 0) + 1
+            elif rd == "robots":
+                script_controller["robots"] = script_controller.get("robots", 0) + 1
+            elif rd == "sitemap":
+                script_controller["sitemaps"] = script_controller.get("sitemaps", 0) + 1
+            elif rd == "internal_url":
+                script_controller["internal_urls"] = script_controller.get("internal_urls", 0) + 1
+
     def restore(self, state: dict):
         """Restore the state from a previously saved dict."""
         with self.lock:
@@ -112,6 +127,8 @@ class SharedDomainStats:
 
             limited_links = links[:remaining]
             count = len(limited_links)
+
+            # print(f"[DOMSTATS] {dom_tld}: total={self.dom_total[dom_tld]} missing={self.dom_missing[dom_tld]} adding={count}")
 
             self.dom_total[dom_tld] += count
             self.dom_missing[dom_tld] += count

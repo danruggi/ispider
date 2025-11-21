@@ -12,7 +12,7 @@ class ResumeState:
         self.logger = LoggerFactory.create_logger(conf, "state_manager.log", stdout_flag=True)
 
     def get_path(self, suffix):
-        return Path(self.conf['path_data']) / f"{self.conf['method']}_{suffix}.pkl"
+        return Path(self.conf['path_data']) / f"unified_{suffix}.pkl"
 
     def load_pickle(self, suffix):
         path = self.get_path(suffix)
@@ -76,7 +76,7 @@ class SaveState:
         self.lock = threading.Lock()
 
     def get_path(self, suffix):
-        return Path(self.conf['path_data']) / f"{self.conf['method']}_{suffix}.pkl"
+        return Path(self.conf['path_data']) / f"unified_{suffix}.pkl"
 
     def save_pickle(self, data, suffix):
         base = self.get_path(suffix)

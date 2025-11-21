@@ -35,28 +35,20 @@ class Orchestrator:
 
     def run(self):
         start_time = time.time()
-        method = self.conf['method']
-        self.logger.info(f"*** BEGIN METHOD {method} ***")
+        self.logger.info(f"*** BEGIN METHOD Unified ***")
 
         try:
-            self.logger.debug(f"Executing: {method}")
-            if method == 'crawl':
-                self.controller = cls_controllers.CrawlController(self.manager, self.conf)
-            elif method == 'spider':
-                self.controller = cls_controllers.SpiderController(self.manager, self.conf)
-            elif method == 'unified':
-                self.controller = cls_controllers.UnifiedController(self.manager, self.conf)
-            else:
-                self.logger.error(f"Unknown stage method: {method}")
-                raise ValueError(f"Unknown stage method: {method}")
-
+            self.logger.debug(f"Executing: Unified")
+            
+            # Launch the main controller
+            self.controller = cls_controllers.UnifiedController(self.manager, self.conf)
             self.controller.run()
 
         except Exception as e:
-            self.logger.exception(f"Error executing {method}: {e}")
+            self.logger.exception(f"Error executing unified: {e}")
 
         duration = round(time.time() - start_time, 2)
-        self.logger.info(f"*** ENDS {method} - Exec time {duration}s")
+        self.logger.info(f"*** ENDS Unified - Exec time {duration}s")
 
 
     def shutdown(self):

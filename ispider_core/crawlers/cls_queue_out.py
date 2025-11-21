@@ -26,62 +26,6 @@ class QueueOut:
         reqA = (url, rd, dom_tld, 0, depth, engine)
         self.q.put(reqA)
 
-    def fullfill_q_all_links(self, all_links, dom_tld, engine='httpx'):
-        for link in all_links:
-            self.fullfill_q(link, dom_tld, rd='internal_url', depth=1, engine=engine)
-
-    def all_links(self, dom_tld, stage):
-        jsons_path = self.conf['path_jsons']
-
-        all_links = set()
-        tot_landings = 0
-        tot_sitemaps = 0
-        landing_done = False
-
-        if os.path.isdir(jsons_path):
-            for entry in os.listdir(jsons_path):
-                if not entry.startswith("crawl_conn_meta.") or not entry.endswith(".json"):
-                    continue
-
-                json_file = os.path.join(jsons_path, entry)
-                with open(json_file, "r", encoding="utf-8") as f:
-                    for line in f:
-                        try:
-                            obj = json.loads(line)
-                            if obj.get("dom_tld") != dom_tld or not obj.get("is_downloaded"):
-                                continue
-
-                            discr = obj.get("request_discriminator")
-
-                            if discr == "sitemap" and obj.get("sitemap_fname"):
-                                sitemap_file = os.path.join(self.conf['path_dumps'], obj["sitemap_fname"])
-                                if os.path.isfile(sitemap_file):
-                                    with open(sitemap_file, 'rb') as sf:
-                                        smp =  SitemapParser(self.logger, self.conf, )
-                                        links = smp.extract_all_links(sf.read())
-                                        all_links |= {domains.add_https_protocol(x) for x in links}
-                                        tot_sitemaps += len(links)
-
-                            elif discr == "landing_page" and not landing_done:
-                                # Try to guess the landing HTML file
-                                # Try from sitemap_fname if present
-                                rel_path = os.path.join(self.conf['path_dumps'], dom_tld)
-                                landing_file = os.path.join(rel_path, '_.html')
-
-                                if os.path.isfile(landing_file):
-                                    hp = HtmlParser(self.logger, self.conf, )
-                                    links = hp.extract_urls(dom_tld, landing_file)
-                                    all_links |= {domains.add_https_protocol(x) for x in links}
-                                    tot_landings += len(links)
-                                    landing_done = True
-
-                        except json.JSONDecodeError:
-                            self.logger.warning(f"Invalid JSON in {json_file}: {line[:80]}...")
-                        except Exception as e:
-                            self.logger.error(f"Error processing entry in {json_file}: {e}")
-
-        # self.logger.info(f"Total links from landings: {tot_landings}, sitemaps: {tot_sitemaps}")
-        return all_links
 
     def fullfill(self, stage):
         t0 = time.time()
@@ -124,13 +68,16 @@ class QueueOut:
                     continue
 
                 # self.logger.info(stage)
-                if stage in ['crawl', 'unified']:
-                    self.fullfill_q(url, dom_tld, rd='landing_page', depth=0, engine=self.engine_selector.next())
+                # if stage in ['crawl', 'unified']:
+                #     self.fullfill_q(url, dom_tld, rd='landing_page', depth=0, engine=self.engine_selector.next())
 
-                elif stage == 'spider':
-                    all_links = self.all_links(dom_tld, stage)
-                    self.fullfill_q_all_links(all_links, dom_tld, engine=self.engine_selector.next())
-                    
+                # elif stage == 'spider':
+                #     all_links = self.all_links(dom_tld, stage)
+                #     self.fullfill_q_all_links(all_links, dom_tld, engine=self.engine_selector.next())
+                
+                self.fullfill_q(url, dom_tld, rd='landing_page', depth=0, engine=self.engine_selector.next())
+                
+
             except Exception as e:
                 self.logger.error(e)
                 continue
@@ -149,3 +96,4 @@ class QueueOut:
 
     def get_queue(self):
         return self.q
+        

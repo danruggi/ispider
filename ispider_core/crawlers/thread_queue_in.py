@@ -47,7 +47,8 @@ def queue_in_srv(
                     #--------------------
                 except Empty:
                     pass
-            
+
+            # logger.debug(f"[QIN] GOT from qout: {reqA}")
 
             if reqA is not None:
                 to_insert.append(reqA)
@@ -65,6 +66,7 @@ def queue_in_srv(
 
                 for el in to_insert:
                     seen_filter.add_to_seen_req(el)
+                    # logger.debug(f"[QIN] PUT into qin: {el}")
                     qin.put(el)
 
                 to_insert.clear()

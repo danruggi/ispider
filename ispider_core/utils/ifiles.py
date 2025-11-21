@@ -1,8 +1,10 @@
 import os
+import re
+import json
 import pathlib
 import hashlib
-import re
 from urllib.parse import urlparse
+from datetime import datetime
 
 from ispider_core.utils import domains
 
@@ -90,6 +92,34 @@ def get_dump_file_name(rd, url, dom_tld, conf):
 
     raise Exception(f"Unknown request_discriminator: {rd}")
 
+
+def write_positive_json(resp, conf, mod):
+    """Write a successful response metadata to unified_conn_meta.X.json"""
+    dump_fname = os.path.join(conf['path_jsons'], f"unified_conn_meta.{mod}.json")
+    with open(dump_fname, 'a+') as f:
+        json.dump(resp, f)
+        f.write('\n')
+
+    if os.path.getsize(dump_fname) > conf['MAX_CRAWL_DUMP_SIZE']:
+        current_time = datetime.now().strftime("%Y%m%d%H%M%S")
+        new_name = f"unified_conn_meta.{mod}.{current_time}.json"
+        os.replace(dump_fname, os.path.join(conf['path_jsons'], new_name))
+
+
+def write_negative_json(resp, conf, mod):
+    """Write a failed response metadata (no content) to unified_conn_meta.X.json"""
+    safe = {k: v for k, v in resp.items() if k != "content"}
+    safe["is_downloaded"] = False
+
+    dump_fname = os.path.join(conf['path_jsons'], f"unified_conn_meta.{mod}.json")
+    with open(dump_fname, 'a+') as f:
+        json.dump(safe, f)
+        f.write('\n')
+
+    if os.path.getsize(dump_fname) > conf['MAX_CRAWL_DUMP_SIZE']:
+        current_time = datetime.now().strftime("%Y%m%d%H%M%S")
+        new_name = f"unified_conn_meta.{mod}.{current_time}.json"
+        os.replace(dump_fname, os.path.join(conf['path_jsons'], new_name))
 
 
 

@@ -19,8 +19,8 @@ def save_finished(script_controller, dom_stats, lock, conf):
         logger.debug(f"Pickle set: {len(finished_domains)} as finished")
 
         if finished_domains:
-            fnt = Path(conf['path_data']) / f"{conf['method']}_dom_stats_finished.pkl.tmp"
-            fn = Path(conf['path_data']) / f"{conf['method']}_dom_stats_finished.pkl"
+            fnt = Path(conf['path_data']) / f"dom_stats_finished.pkl.tmp"
+            fn = Path(conf['path_data']) / f"dom_stats_finished.pkl"
 
             # Save to temporary file
             t0 = time.time()

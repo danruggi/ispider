@@ -25,12 +25,8 @@ class SeenFilter:
         rd = reqA[1]
         url = reqA[0]
         dom_tld = reqA[2]
-        path = ""
-        try:
-            path = get_dump_file_name(rd, url, dom_tld, self.conf)
-        except:
-            pass
-        h = hashlib.sha256(str(path).encode('utf-8')).hexdigest()
+
+        h = hashlib.sha256(str(f"{url}|{dom_tld}").encode('utf-8')).hexdigest()
         return h
 
     def _load_existing_hashes(self):
@@ -44,12 +40,20 @@ class SeenFilter:
         return len(self.bloom)
 
     def req_in_seen(self, reqA):
+        # Just internal urls
         if reqA[1] != 'internal_url':
             return False
+
+        # Avoid if retry
+        if reqA[3] > 0:
+            return False
+
         h = self._hash_from_req(reqA)
         with self.lock:
             in_bloom = h in self.bloom
+
         # self.logger.debug(f"[{h}] {reqA} req_in_seen in bloom: {in_bloom}")
+        
         return in_bloom
 
     def resp_to_req(self, resp):

@@ -10,7 +10,6 @@ from queue import Empty
 from ispider_core.crawlers import http_client
 from ispider_core.crawlers import http_filters
 from ispider_core.crawlers import http_retries
-from ispider_core.crawlers import stage_crawl_helpers
 from ispider_core.crawlers import stage_unified_helpers
 
 from ispider_core.utils.logger import LoggerFactory
@@ -44,6 +43,7 @@ def call_and_manage_resps(
         resp['user_agent'] = hdrs['user-agent']
         sub_dom_tld = resp.get('final_url_sub_domain_tld', dom_tld)
 
+
         # SPEED CALC for STATS
         try:
             script_controller['bytes'] += resp['num_bytes_downloaded']
@@ -63,6 +63,7 @@ def call_and_manage_resps(
         except Exception as e:
             logger.warning(f"{e}")
             dom_stats.reduce_missing(dom_tld)
+            ifiles.write_negative_json(resp, conf, mod)
             continue
 
         ## CHECK IF FILE EXISTS
@@ -70,24 +71,33 @@ def call_and_manage_resps(
             http_filters.filter_file_exists(resp, conf)
         except Exception as e:
             logger.error(e)
+            ifiles.write_negative_json(resp, conf, mod)
             dom_stats.reduce_missing(dom_tld)
             continue
+
 
         # **********************
         # ERROR CORRECTION / RETRIES
         if http_retries.should_retry(resp, conf, logger, qout, mod):
+            # logger.debug(f"[RETRY] [{status_code}] -- D:{depth} -- R: {retries} -- E:{current_engine} -- [{dom_tld}] {url}")
+            ifiles.write_negative_json(resp, conf, mod)
             continue
         
         logger.debug(f"[{mod}] [{status_code}] -- D:{depth} -- R: {retries} -- E:{current_engine} -- [{dom_tld}] {url}")
 
+        # **********************
+        # INCREASE COUNTERS
+        dom_stats.increase_script_counters(rd, script_controller)
+
         # ***********************
         # UNIFIED ACTIONS MANAGEMENT
         try:
-            # Handle crawl stage actions (robots, sitemaps)
-            stage_crawl_helpers.robots_sitemaps_crawl(
+            
+            # CRAWL ACTIONS (robots, sitemaps)
+            stage_unified_helpers.robots_sitemaps_crawl(
                 resp, dom_stats, current_engine, conf, logger, qout)
         
-            # Extract links from sitemaps and internal_urls
+            # EXTRACT LINKS
             stage_unified_helpers.unified_link_extraction(
                 resp, dom_stats, qout, conf, logger, current_engine)
 
@@ -104,22 +114,14 @@ def call_and_manage_resps(
         # Reduce dom count Up Down by 1
         dom_stats.reduce_missing(dom_tld)
 
+
         ### DUMP To file AND Delete content from resp
         resp['page_size'] = len(resp['content']) if resp['content'] is not None else 0
         resp['is_downloaded'] = ifiles.dump_to_file(resp, conf)
 
         del(resp['content'])
         
-        dump_fname = os.path.join(conf['path_jsons'], f"unified_conn_meta.{mod}.json")
-        with open(dump_fname, 'a+') as f:
-            json.dump(resp, f)
-            f.write('\n')
-
-        ## 50MB    
-        if os.path.getsize(dump_fname) > conf['MAX_CRAWL_DUMP_SIZE']:
-            current_time = datetime.now().strftime("%Y%m%d%H%M%S")
-            back_dump_fname = os.path.join(conf['path_jsons'], f"unified_conn_meta.{mod}.{current_time}.json")
-            os.replace(dump_fname, back_dump_fname)
+        ifiles.write_positive_json(resp, conf, mod)
 
 
 def unified(mod, conf, exclusion_list, seen_filter, 
@@ -146,13 +148,7 @@ def unified(mod, conf, exclusion_list, seen_filter,
 
     # MAIN Cycle of unified processing
     script_controller['running_state'] = 9
-    script_controller.update({
-        'landings': 0, 
-        'robots': 0, 
-        'sitemaps': 0, 
-        'internal_urls': 0
-    })
-
+    
     t0 = time.time()
     hdrs = headers.get_header('basics')
 
@@ -160,9 +156,9 @@ def unified(mod, conf, exclusion_list, seen_filter,
 
         while script_controller['running_state']:
             try:
-                reqA = qin.get(timeout=10)
+                reqA = qin.get(timeout=60)
             except Empty:
-                continue
+                break
 
             url = reqA[0]
             rd = reqA[1]
@@ -172,15 +168,6 @@ def unified(mod, conf, exclusion_list, seen_filter,
                 dom_stats.reduce_missing(dom_tld)
                 logger.warning(f"{dom_tld} excluded {url}")
                 continue
-            
-            last_call = dom_stats.dom_last_call.get(dom_tld)
-            if last_call:
-                elapsed_ms = (datetime.now() - last_call).total_seconds() * 1000
-                if elapsed_ms < conf['DELAY_DOMAIN_MILL']:
-                    qout.put(reqA)
-                    time.sleep(0.01) # Avoid CPU spin // some better idea?
-                    continue  # Skip this domain, not enough time has passed
-            dom_stats.set_last_call(dom_tld)
 
             urls.append(reqA)
             
@@ -194,6 +181,16 @@ def unified(mod, conf, exclusion_list, seen_filter,
                     script_controller['tot_counter'] += len(urls)
                 
                 urls = list()
+
+        if len(urls) > 0:
+            logger.info(f"Last call and manage, urls: {len(urls)}")
+            call_and_manage_resps(
+                urls, mod, lock_driver, exclusion_list, seen_filter, 
+                dom_stats, script_controller, 
+                conf, logger, hdrs, qout)
+            
+            with lock:
+                script_controller['tot_counter'] += len(urls)
 
     except KeyboardInterrupt:
         logger.warning("Subprocess interrupted by keyboard")

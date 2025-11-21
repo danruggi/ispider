@@ -31,16 +31,6 @@ def create_parser():
 
     subparsers = parser.add_subparsers(dest='stage', title='Stages', help='Available stages')
 
-    # Crawl subcommand
-    parser_crawl = subparsers.add_parser('crawl', help='Crawl stage: fetch landings, robots, sitemaps')
-    parser_crawl.add_argument('-f', type=str, help="Input CSV file with domains (column name: dom_tld)")
-    parser_crawl.add_argument('-o', type=str, help="Single domain to scrape")
-
-    # Spider subcommand
-    parser_spider = subparsers.add_parser('spider', help='Spider stage: follow links to max depth')
-    parser_spider.add_argument('-f', type=str, help="Input CSV file with domains (column name: dom_tld)")
-    parser_spider.add_argument('-o', type=str, help="Single domain to scrape")
-
     # Unified subcommand
     parser_unified = subparsers.add_parser('unified', help='Spider stage: follow links to max depth')
     parser_unified.add_argument('-f', type=str, help="Input CSV file with domains (column name: dom_tld)")
