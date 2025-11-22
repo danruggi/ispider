@@ -67,7 +67,6 @@ pip install ispider
 First use
 ```
 from ispider_core import ISpider
-import pandas as pd
 
 if __name__ == '__main__':
     config_overrides = {
@@ -81,16 +80,17 @@ if __name__ == '__main__':
         'ENGINES': ['curl']
     }
 
-    # Load a file with domains, convert it to a list
-    # doms = ['domain1.com', 'domain2.com'....]
-    df = pd.read_csv('t.csv')
-    doms = df['dom_tld'].tolist()
+    # Specify a list of domains
+    doms = ['domain1.com', 'domain2.com'....]
 
-    # Begin to run
-    # Crawl takes landings, robots, sitemaps
-    ISpider(domains=doms, stage="crawl", **config_overrides).run()
-    # Spider get all links from Crawled pages
-    ISpider(domains=doms, stage="spider", **config_overrides).run()
+    # Or load a file with domains, and convert them to a list
+    #import pandas as pd
+    #df = pd.read_csv('t.csv')
+    #doms = df['dom_tld'].tolist()
+
+    # Run
+    with ISpider(domains=doms, stage="unified", **config_overrides) as spider:
+        spider.run()
 ```
 
 # TO KNOW
