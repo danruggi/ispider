@@ -1,0 +1,13 @@
+name: Daily Activity
+
+on:
+  schedule:
+    - cron: '0 3 * * *'   # runs every day at 12:00 UTC
+  workflow_dispatch:        # allows manual run
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Do a no-op task
+        run: echo "Daily activity run at $(date)"
