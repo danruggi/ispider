@@ -16,6 +16,7 @@ async def fetch_with_httpx(reqA, client, mod):
         'url':               url,
         'request_discriminator': request_discriminator,
         'dom_tld':           dom_tld,
+        'original_dom_tld':  dom_tld,
         'retries':           retries,
         'depth':             depth,
         'mod':               mod,
@@ -56,9 +57,18 @@ async def fetch_with_httpx(reqA, client, mod):
         except Exception as e:
             pass
 
+        # v 0.7 - allow redirects
         if metadata['final_url_domain_tld'].lower() != metadata['dom_tld'].lower():
-            metadata["status_code"] = -1
-            raise Exception("Redirects not allowed by design")
+            # Only allow redirects for landing pages (domain moved scenario)
+            if request_discriminator == 'landing_page':
+                metadata['dom_tld'] = metadata['final_url_domain_tld']
+                metadata['was_redirected'] = True
+            else:
+                # For internal_url, robots, sitemap - reject cross-domain redirects
+                metadata['status_code'] = -1
+                raise Exception(f"Cross-domain redirect not allowed for {request_discriminator}")
+        else:
+            metadata['was_redirected'] = False
 
         metadata['content'] = response.content
 

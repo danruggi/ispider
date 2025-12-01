@@ -10,6 +10,7 @@ def fetch_with_curl(reqA, conf):
         'url': url,
         'request_discriminator': request_discriminator,
         'dom_tld': dom_tld,
+        'original_dom_tld': dom_tld,  # NEW: Track original domain
         'retries': retries,
         'depth': depth,
         'engine': engine,
@@ -65,9 +66,18 @@ def fetch_with_curl(reqA, conf):
                         metadata['error_message'] = f"Extracting sub/dom/tld: {e}"
                         pass
 
+                    # NEW: Allow redirects ONLY for landing pages
                     if metadata['final_url_domain_tld'].lower() != metadata['dom_tld'].lower():
-                        metadata["status_code"] = -1
-                        raise Exception("Redirects not allowed by design")
+                        # Only allow redirects for landing pages (domain moved scenario)
+                        if request_discriminator == 'landing_page':
+                            metadata['dom_tld'] = metadata['final_url_domain_tld']
+                            metadata['was_redirected'] = True
+                        else:
+                            # For internal_url, robots, sitemap - reject cross-domain redirects
+                            metadata['status_code'] = -1
+                            raise Exception(f"Cross-domain redirect not allowed for {request_discriminator}")
+                    else:
+                        metadata['was_redirected'] = False
 
                 else:
                     metadata['error_message'] = f"Unexpected metadata format: {meta_part}"

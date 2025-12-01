@@ -35,7 +35,8 @@ def call_and_manage_resps(
         status_code = resp['status_code']
         url = resp['url']
         rd = resp['request_discriminator']
-        dom_tld = resp['dom_tld']
+        original_dom_tld = resp.get('original_dom_tld', resp['dom_tld'])
+        dom_tld = resp['dom_tld']  # This is now the final domain after redirect
         retries = resp['retries']
         depth = resp['depth']
         error_message = resp['error_message']
@@ -43,6 +44,10 @@ def call_and_manage_resps(
         resp['user_agent'] = hdrs['user-agent']
         sub_dom_tld = resp.get('final_url_sub_domain_tld', dom_tld)
 
+        # Handle redirects for landing pages
+        if rd == 'landing_page' and resp.get('was_redirected', False):
+            logger.info(f"Redirect detected: {original_dom_tld} -> {dom_tld}")
+            dom_stats.register_redirect(original_dom_tld, dom_tld)
 
         # SPEED CALC for STATS
         try:
@@ -70,7 +75,7 @@ def call_and_manage_resps(
         try:
             http_filters.filter_file_exists(resp, conf)
         except Exception as e:
-            logger.error(e)
+            logger.debug(e)
             ifiles.write_negative_json(resp, conf, mod)
             dom_stats.reduce_missing(dom_tld)
             continue

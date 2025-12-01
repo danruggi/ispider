@@ -10,6 +10,99 @@ class SharedDomainStats:
         self.dom_total = manager.dict()
         self.dom_last_call = manager.dict()
         self.dom_engine = manager.dict()
+        self.dom_redirects = manager.dict()
+
+    def register_redirect(self, original_dom_tld, final_dom_tld):
+        """Register a domain redirect and transfer stats to final domain"""
+        if original_dom_tld == final_dom_tld:
+            return final_dom_tld
+            
+        with self.lock:
+            # Store the redirect mapping
+            self.dom_redirects[original_dom_tld] = final_dom_tld
+            
+            # Initialize final domain if needed
+            if final_dom_tld not in self.dom_missing:
+                self.add_domain(final_dom_tld)
+            
+            # Transfer stats from original to final domain
+            if original_dom_tld in self.dom_missing:
+                # Transfer missing and total counts
+                self.dom_missing[final_dom_tld] = (
+                    self.dom_missing.get(final_dom_tld, 0) + 
+                    self.dom_missing.get(original_dom_tld, 0)
+                )
+                self.dom_total[final_dom_tld] = (
+                    self.dom_total.get(final_dom_tld, 0) + 
+                    self.dom_total.get(original_dom_tld, 0)
+                )
+                
+                # Transfer local_stats if they exist
+                if original_dom_tld in self.local_stats:
+                    if final_dom_tld not in self.local_stats:
+                        self.local_stats[final_dom_tld] = {}
+                    # Merge stats (sum numeric values, keep other values from original)
+                    for key, value in self.local_stats[original_dom_tld].items():
+                        if isinstance(value, (int, float)):
+                            self.local_stats[final_dom_tld][key] = (
+                                self.local_stats[final_dom_tld].get(key, 0) + value
+                            )
+                        else:
+                            self.local_stats[final_dom_tld][key] = value
+                
+                # REMOVE original domain from all tracking dicts
+                del self.dom_missing[original_dom_tld]
+                del self.dom_total[original_dom_tld]
+                if original_dom_tld in self.dom_last_call:
+                    del self.dom_last_call[original_dom_tld]
+                if original_dom_tld in self.dom_engine:
+                    del self.dom_engine[original_dom_tld]
+                if original_dom_tld in self.local_stats:
+                    del self.local_stats[original_dom_tld]
+                
+        return final_dom_tld
+    
+    def get_final_domain(self, dom_tld):
+        """Get the final domain after following redirects"""
+        return self.dom_redirects.get(dom_tld, dom_tld)
+
+    def serialize(self) -> dict:
+        """Return a serializable dict of the current state."""
+        with self.lock:
+            return {
+                "dom_missing": dict(self.dom_missing),
+                "dom_total": dict(self.dom_total),
+                "dom_last_call": {
+                    k: v.isoformat() if v is not None else None
+                    for k, v in dict(self.dom_last_call).items()
+                },
+                "dom_engine": dict(self.dom_engine),
+                "dom_redirects": dict(self.dom_redirects),  # NEW
+                "local_stats": dict(self.local_stats),
+            }
+
+    def restore(self, state: dict):
+        """Restore the state from a previously saved dict."""
+        with self.lock:
+            self.dom_missing.clear()
+            self.dom_total.clear()
+            self.dom_last_call.clear()
+            self.dom_engine.clear()
+            self.dom_redirects.clear()  # NEW
+            self.local_stats.clear()
+
+            for k, v in state.get("dom_missing", {}).items():
+                self.dom_missing[k] = v
+            for k, v in state.get("dom_total", {}).items():
+                self.dom_total[k] = v
+            for k, v in state.get("dom_last_call", {}).items():
+                self.dom_last_call[k] = datetime.fromisoformat(v) if v is not None else None
+            for k, v in state.get("dom_engine", {}).items():
+                self.dom_engine[k] = v
+            for k, v in state.get("dom_redirects", {}).items():  # NEW
+                self.dom_redirects[k] = v
+            for k, v in state.get("local_stats", {}).items():
+                self.local_stats[k] = v
 
     def add_domain(self, dom_tld):
         self.dom_missing[dom_tld] = 0

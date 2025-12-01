@@ -3,7 +3,7 @@ import pandas as pd
 
 if __name__ == '__main__':
     config_overrides = {
-        'USER_FOLDER': 'test_scrape_01',
+        'USER_FOLDER': '/home/dany/test_scrape_03',
         'POOLS': 32,
         'ASYNC_BLOCK_SIZE': 32,
         'MAXIMUM_RETRIES': 2,
@@ -26,7 +26,8 @@ if __name__ == '__main__':
     # 'cyrusramsey.com', 'glossgenius.com', 'martinconstructionboise.com', '208performancetuning.com', '208roofing.com', '208tees.com', 
     # 'myshopify.com', '208taxhelp.com', '21apparel.com', '22northsalon.com', '2csignshop.com']
 
-    doms = ['apexintegratedsecurity.com']
+    # doms = ['apexintegratedsecurity.com', 'https://goagainst.com/', 'gitea.io']
+    doms = ['gitea.io']
 
     # doms = ['deskydoo.com']
     # doms = ['1800waterdamage.com']
