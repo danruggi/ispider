@@ -27,7 +27,8 @@ dependencies = [
     "w3lib",
     "pybloom_live",
     "uvicorn",
-    "fastapi"
+    "fastapi",
+    "pandas"
 ]
 
 [project.scripts]

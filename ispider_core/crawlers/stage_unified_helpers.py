@@ -117,7 +117,7 @@ def robots_sitemaps_crawl(c, dom_stats, engine, conf, logger, qout):
         robots_sitemaps = set()
         try:
             for line in str(c['content'], 'utf-8').splitlines():
-                if re.search(r'Sitemap[ ]?:', line):
+                if re.search(r'sitemap\s*:', line, re.IGNORECASE):
                     sitemap_url = line.split(":", 1)[1].strip();
                     sitemap_url = domains.add_https_protocol(sitemap_url)
 
