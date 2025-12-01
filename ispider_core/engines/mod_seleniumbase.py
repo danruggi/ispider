@@ -17,6 +17,7 @@ def fetch_with_seleniumbase(reqA, lock_driver, mod, conf=None):
         'url': url,
         'request_discriminator': request_discriminator,
         'dom_tld': dom_tld,
+        'original_dom_tld': dom_tld,  # NEW: Track original domain
         'retries': retries,
         'depth': depth,
         'mod': mod,
@@ -44,13 +45,20 @@ def fetch_with_seleniumbase(reqA, lock_driver, mod, conf=None):
                 except Exception as e:
                     metadata['error_message'] = f"Domain parsing failed: {e}"
 
+                # NEW: Allow redirects ONLY for landing pages
                 if metadata['final_url_domain_tld'].lower() != dom_tld.lower():
-                    metadata["status_code"] = -1
-                    raise Exception("Redirects not allowed by design")
+                    if request_discriminator == 'landing_page':
+                        metadata['dom_tld'] = metadata['final_url_domain_tld']
+                        metadata['was_redirected'] = True
+                    else:
+                        metadata['status_code'] = -1
+                        raise Exception(f"Cross-domain redirect not allowed for {request_discriminator}")
+                else:
+                    metadata['was_redirected'] = False
 
                 html = sb.get_page_source()
                 metadata['content'] = html.encode("utf-8")
-                metadata['status_code'] = 200  # Selenium doesn't return status codes directly
+                metadata['status_code'] = 200
 
                 if filetype_parser.exclude_file_types_from_data(metadata['content']):
                     raise Exception("Unsupported file type")
