@@ -85,7 +85,8 @@ class BaseCrawlController:
                         queue_out_handler.conf['domains'] = new_domains
                         queue_out_handler.fullfill(self.stage)
                 except (EOFError, KeyError, BrokenPipeError) as e:
-                    self.logger.info(f"Shared proxy no longer available, exiting enqueue_new_domains thread: {e}")
+                    self.logger.error(f"Shared proxy no longer available, exiting enqueue_new_domains thread: {e}")
+                    self.shared_script_controller['running_state'] = 0
                     break
                 except Exception as e:
                     self.logger.error(e)
@@ -102,6 +103,7 @@ class BaseCrawlController:
                     self.shared_dom_stats.flush_qstats()
                 except EOFError:
                     self.logger.warning(f"flush_stats_loop closed by EOF")
+                    self.shared_script_controller['running_state'] = 0
                     break
                 except Exception as e:
                     self.logger.warning(f"Failed to flush stats: {e}")
@@ -237,7 +239,8 @@ class BaseCrawlController:
             # self.logger.info(f"Unfinished: {unfinished}")
             self.logger.info(f"*** Done {self.shared_script_controller['tot_counter']} PAGES")
             # self._shutdown()
-            return True
+        
+        return True
 
     def _shutdown(self):
         self.logger.info("Shutting down…")

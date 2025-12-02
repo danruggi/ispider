@@ -1,63 +1,93 @@
-from collections import deque, Counter
+from collections import defaultdict, deque, Counter
+from heapq import heapify, heappop, heappush
 
-def sparse_q_elements(A):
-    """
-    Spreads elements from the input list A in a balanced manner
-    to minimize consecutive occurrences of the same domain (dom_tld).
-    """
-    tdict = {}  # Dictionary to store elements grouped by domain
-    all_dom_tld = []  # List to store all domain occurrences
+import time
 
-    # Group elements by domain and build a list of domains
+def sparse_q_elements_with_timing(A, domain_last_seen, min_delay=0.5):
+    """
+    Sparsing that considers timing between same-domain requests.
+    Ensures domains are separated by at least min_delay seconds.
+    Randomness if more elements of the same domain in queue... it works, but not works
+    To be improved
+    """
+    if not A:
+        return A
+    
+    tdict = {}
     for el in A:
-        dom_tld = el[2]  # Assuming el[2] contains the domain/tld info
+        dom_tld = el[2]
         tdict.setdefault(dom_tld, []).append(el)
-        all_dom_tld.append(dom_tld)
-
-    # Spread domain occurrences to create a balanced order
-    # print(all_dom_tld)
-    spreaded_domains = spread2(all_dom_tld)
-    # print(spreaded_domains)
+    
+    # Sort domains by last seen time (least recent first)
+    current_time = time.time()
+    domains_by_readiness = []
+    
+    for dom_tld in tdict.keys():
+        last_seen = domain_last_seen.get(dom_tld, 0)
+        time_since_last = current_time - last_seen
+        
+        # Priority: domains not seen recently get processed first
+        priority = time_since_last if time_since_last < min_delay else min_delay
+        domains_by_readiness.append((priority, dom_tld))
+    
+    domains_by_readiness.sort(reverse=True)
+    
+    # Build output with maximum separation
     out = []
-    for dom_tld in spreaded_domains:
-        if tdict[dom_tld]:  # Ensure there are elements left to pop
-            out.append(tdict[dom_tld].pop())
-
+    used_domains = set()
+    
+    # First pass: one URL from each domain
+    for _, dom_tld in domains_by_readiness:
+        if tdict[dom_tld]:
+            out.append(tdict[dom_tld].pop(0))
+            used_domains.add(dom_tld)
+    
+    # Second pass: distribute remaining URLs
+    while any(tdict.values()):
+        for _, dom_tld in domains_by_readiness:
+            if tdict[dom_tld]:
+                out.append(tdict[dom_tld].pop(0))
+    
     return out
 
+## Leave some elements in the queue?
+def spread_domains_balanced(dom_list):
+    freq = Counter(dom_list)
+    heap = [(-cnt, dom) for dom, cnt in freq.items()]
+    heapify(heap)
 
-def spread2(A):
-    """
-    Distributes elements evenly to prevent clustering of identical values.
-    """
-    countGroups = {}  # Dictionary mapping counts to lists of values
-
-    # Group values by their frequency
-    for value, count in Counter(A).items():
-        countGroups.setdefault(count, []).append(value)
-
+    prev = None
     result = []
 
-    # Process counts in ascending order to distribute values evenly
-    for count, values in sorted(countGroups.items()):
-        result.extend(values)  # Append values to the result list
+    while heap:
+        cnt, dom = heappop(heap)
+        result.append(dom)
+        cnt += 1  # reduce magnitude
 
-        if count == 1:
-            continue  # No further spreading needed for unique values
+        if prev:
+            heappush(heap, prev)
 
-        result[:0] = values  # Insert at the beginning for better distribution
-
-        if count == 2:
-            continue  # No further processing needed for count=2
-
-        # Calculate chunk size and distribute elements evenly
-        chunk, extra = divmod(len(result) - 2 * len(values), count - 1)
-        i = 0
-        for _ in range(count - 2):
-            i += chunk + len(values) + (extra > 0)
-            extra -= 1
-            result[i:i] = values  # Insert values at calculated positions
+        prev = (cnt, dom) if cnt < 0 else None
 
     return result
 
 
+def sparse_q_elements(A):
+    tdict = defaultdict(deque)
+    all_dom_tld = []
+
+    # Fill buckets
+    for el in A:
+        dom_tld = el[2]
+        tdict[dom_tld].append(el)
+        all_dom_tld.append(dom_tld)
+
+    spreaded = spread_domains_balanced(all_dom_tld)
+
+    out = []
+    for dom_tld in spreaded:
+        bucket = tdict[dom_tld]
+        if bucket:
+            out.append(bucket.popleft())
+
+    return out

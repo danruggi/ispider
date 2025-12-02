@@ -1,6 +1,7 @@
 import multiprocessing
 import os
 import requests
+import time
 from pathlib import Path
 
 from ispider_core.utils.logger import LoggerFactory
@@ -129,14 +130,13 @@ class ISpider:
 
     def shutdown(self):
         if self.orchestrator:
-            # Tell orchestrator and controller to stop threads and processes
             self.orchestrator.shutdown()
-
-        # Only after all threads/processes joined, then shutdown manager
+            time.sleep(2)
         if self.manager:
-            self.manager.shutdown()
-
-        self.logger.info("Ispider shutdown complete")
+            try:
+                self.manager.shutdown()
+            except Exception as e:
+                self.logger.warning(f"Manager shutdown error: {e}")
 
     def __enter__(self):
         """Enter context manager and return self."""

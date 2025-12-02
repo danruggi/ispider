@@ -112,9 +112,9 @@ class SharedDomainStats:
         self.local_stats[dom_tld] = {}
 
     def reduce_missing(self, dom_tld):
-        if dom_tld not in self.dom_missing:
-            return
         with self.lock:
+            if dom_tld not in self.dom_missing:
+                return
             self.dom_missing[dom_tld] -= 1
 
     def reduce_total(self, dom_tld):

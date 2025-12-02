@@ -51,12 +51,13 @@ def call_and_manage_resps(
 
         # SPEED CALC for STATS
         try:
-            script_controller['bytes'] += resp['num_bytes_downloaded']
-            dom_stats.qstats.put({"dom_tld": dom_tld, "key": "bytes", "value": resp['num_bytes_downloaded'], "op": "sum"})
-            dom_stats.qstats.put({"dom_tld": dom_tld, "key": "last_status_code", "value": resp['status_code'], "op": "set"})
+            bytes_downloaded = resp.get('num_bytes_downloaded', 0)
+            if bytes_downloaded:
+                script_controller['bytes'] += bytes_downloaded
+                dom_stats.qstats.put({"dom_tld": dom_tld, "key": "bytes", "value": bytes_downloaded, "op": "sum" })
+            dom_stats.qstats.put({"dom_tld": dom_tld, "key": "last_status_code", "value": resp.get('status_code', -1), "op": "set" })
         except Exception as e:
-            logger.warning(e)
-            pass
+            self.logger.warning(f"Failed to update stats: {e}")
 
         # Crawl FILTERS
         if dom_tld not in dom_stats.dom_missing:

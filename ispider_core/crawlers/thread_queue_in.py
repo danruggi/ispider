@@ -3,6 +3,10 @@ import random
 import multiprocessing as mp
 from queue import Empty  # Import to catch queue exceptions
 
+# NEW: Track recently processed domains per worker
+from collections import defaultdict, deque
+import time
+
 from ispider_core.utils import queues
 from ispider_core.utils import ifiles
 
@@ -24,6 +28,9 @@ def queue_in_srv(
     
     t0 = time.time()
 
+    recent_domains = defaultdict(lambda: deque(maxlen=100))  # Track last 100 domains per worker
+    domain_last_seen = {}
+    
     try:
         while True:
             # logger.info("QueueIN Cycle")
@@ -58,11 +65,15 @@ def queue_in_srv(
                 time.sleep(.5)  # Lower sleep time for responsiveness
 
             if len(to_insert) >= Q_BLOCK_MAX or qout.empty():
-                while qin.qsize() >= Q_MAX // 2:
+                while qin.qsize() >= Q_MAX // 2 and script_controller['running_state']:
                     time.sleep(2)
 
                 # Ensure function exists before calling
-                to_insert = queues.sparse_q_elements(to_insert)
+                to_insert = queues.sparse_q_elements_with_timing(
+                    to_insert, 
+                    domain_last_seen,
+                    min_delay=conf.get('DELAY_DOMAIN_SEC', 0.5)
+                )
 
                 for el in to_insert:
                     seen_filter.add_to_seen_req(el)
