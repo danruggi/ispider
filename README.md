@@ -5,12 +5,11 @@
 - Multicore and multithreaded  
 - Accepts hundreds/thousands of websites/domains as input  
 - Sparse requests to avoid repeated calls against the same domain
-- Automatic retry with different engines (httpx, curl, seleniumbase)
 - The `httpx` engine works in asyncio blocks defined by `settings.ASYNC_BLOCK_SIZE`, so total concurrent threads are `ASYNC_BLOCK_SIZE * POOLS`
 - It supports retry with different engines (httpx, curl, seleniumbase [testing])
 
 It was designed for maximum speed, so it has some limitations:  
-- As of v0.4.1, it does not support files (pdf, video, images, etc); it only processes HTML
+- As of v0.7, it does not support files (pdf, video, images, etc); it only processes HTML
 
 
 # HOW IT WORKS - SIMPLE
@@ -69,6 +68,7 @@ First use
 from ispider_core import ISpider
 
 if __name__ == '__main__':
+    # Check the readme for the complete avail parameters
     config_overrides = {
         'USER_FOLDER': '/Your/Dump/Folder',
         'POOLS': 64,
@@ -83,13 +83,8 @@ if __name__ == '__main__':
     # Specify a list of domains
     doms = ['domain1.com', 'domain2.com'....]
 
-    # Or load a file with domains, and convert them to a list
-    #import pandas as pd
-    #df = pd.read_csv('t.csv')
-    #doms = df['dom_tld'].tolist()
-
     # Run
-    with ISpider(domains=doms, stage="unified", **config_overrides) as spider:
+    with ISpider(domains=doms, **config_overrides) as spider:
         spider.run()
 ```
 
@@ -105,8 +100,8 @@ that's a list of almost-infinite domains that would retain the script forever
 You can update the file in ~/.ispider/sources
 
 - It creates settings.USER_FOLDER/data/ with dumps/ and jsons/
-- dumps are the downloaded websites
-- jsons are the connection results for every request
+- settings.USER_FOLDER/data/dumps are the downloaded websites
+- settings.USER_FOLDER/data/jsons are the connection results for every request
 
 
 # SETTINGS
@@ -194,4 +189,5 @@ Actual default settings are:
 
 
 # NOTES
-- Deduplication is not 100% safe, sometimes pages are downloaded multiple times, and skipped in file check. On ~10 domains, this create small delay. But on 10000 domains after 500k links, the domain list is so big that checking if a link is already downloaded or not was decreasing considerably the speed (from 30000 urls/min to 300 urls/min).
+- Deduplication is not 100% safe, sometimes pages are downloaded multiple times, and skipped in file check. 
+On ~10 domains, check duplication has small delay. But on 10000 domains after 500k links, the domain list is so big that checking if a link is already downloaded or not was decreasing considerably the speed (from 30000 urls/min to 300 urls/min). That's why I preferred avoid a list, and left just "check file". 

@@ -33,7 +33,7 @@ if __name__ == '__main__':
     # doms = ['deskydoo.com']
     # doms = ['1800waterdamage.com']
     # doms = []
-    with ISpider(domains=doms, stage="unified", **config_overrides) as spider:
+    with ISpider(domains=doms) as spider:
         spider.run()
     
     
