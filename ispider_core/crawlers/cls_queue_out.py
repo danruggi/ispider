@@ -17,7 +17,7 @@ class QueueOut:
         self.dom_stats = dom_stats
         self.dom_tld_finished = dom_tld_finished
         self.exclusion_list = exclusion_list
-        self.tot_finished = 0
+        self.tot_finished = len(dom_tld_finished)
         self.engine_selector = engine.EngineSelector(conf['ENGINES'])
         self.q = q
 
