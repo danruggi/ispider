@@ -126,7 +126,7 @@ class BaseCrawlController:
     def _activate_seleniumbase(self):
         if 'seleniumbase' in self.conf['ENGINES']:
             from ispider_core.engines import mod_seleniumbase
-            self.logger.info("Activating seleniumbase")
+            self.logger.info(f"Activating seleniumbase because conf.ENGINES = {self.conf['ENGINES']}")
             mod_seleniumbase.prepare_chromedriver_once()
 
 

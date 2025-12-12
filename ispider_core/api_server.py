@@ -114,7 +114,7 @@ app.add_middleware(
 class SpiderConfig(BaseModel):
     domains: List[str] = []
     stage: Optional[str] = None
-    user_folder: str = "~/.ispider/"
+    user_folder: str = os.path.expanduser("~/.ispider/")
     log_level: str = "DEBUG"
     pools: int = 2
     async_block_size: int = 2

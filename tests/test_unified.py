@@ -3,7 +3,7 @@ import pandas as pd
 
 if __name__ == '__main__':
     config_overrides = {
-        'USER_FOLDER': '/home/dany/test_scrape_07',
+        # 'USER_FOLDER': '/home/dany/test_scrape_07',
         'POOLS': 32,
         'ASYNC_BLOCK_SIZE': 32,
         'MAXIMUM_RETRIES': 2,

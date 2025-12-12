@@ -1,7 +1,8 @@
 ## *********************************
 ## GENERIC SETTINGS
 # Output folder for controllers, dumps, and JSONs
-USER_FOLDER = "~/.ispider/"
+import os
+USER_FOLDER = os.path.expanduser("~/.ispider/")
 
 # Logging level
 LOG_LEVEL = 'DEBUG'

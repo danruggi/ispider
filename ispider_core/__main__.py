@@ -60,7 +60,7 @@ def main():
         domains = [args.o]
 
     config_overrides = {
-        'USER_FOLDER': '~/.ispider/',
+        'USER_FOLDER': os.path.expanduser("~/.ispider/")
         'POOLS': 4,
         'ASYNC_BLOCK_SIZE': 4,
         'MAXIMUM_RETRIES': 2,

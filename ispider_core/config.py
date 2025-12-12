@@ -2,6 +2,8 @@
 
 import copy
 import importlib
+import types
+
 from ispider_core import settings as default_settings
 
 class Settings:
@@ -17,8 +19,20 @@ class Settings:
     def configure(self, **kwargs):
         self._overrides.update(kwargs)
 
+    import types
+
     def to_dict(self):
-        result = {k: getattr(self, k) for k in dir(self._defaults) if not k.startswith("_")}
+        result = {}
+        for k in dir(self._defaults):
+            if k.startswith("_"):
+                continue
+            v = getattr(self, k)
+
+            if isinstance(v, types.ModuleType):
+                continue
+
+            result[k] = v
+
         result.update(self._overrides)
         return result
 
