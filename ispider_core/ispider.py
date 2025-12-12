@@ -115,10 +115,6 @@ class ISpider:
 
         self.logger.info(f"Using output folder: {self._get_user_folder()}")
         
-        # print(self.conf)
-        # quit()
-        
-    
         self.logger.info("*** Running Unified as default")    
         self.conf['method'] = 'unified'
         self.orchestrator.run()
