@@ -29,19 +29,27 @@ class ResumeState:
                 return data
             except Exception as e:
                 self.logger.error(f"Error loading {suffix}: {e}")
-
         else:
             self.logger.warning(f"No resume file for {suffix} at {path}")
 
         return None
 
-
     def resume_all(self):
-        # 1. Resume finished domains
+        # 1. Resume domain stats internals FIRST (includes redirect mappings)
+        ds = self.load_pickle('dom_stats')
+        if ds is not None:
+            try:
+                self.ctrl.shared_dom_stats.restore(ds)
+                self.logger.info("Restored domain stats including redirect mappings")
+            except AttributeError:
+                self.logger.warning("DomainStats lacks restore(), skipping stats resume")
+
+        # 2. Resume finished domains (now that redirects are loaded)
         domains = self.load_pickle('dom_stats_finished') or set()
         self.ctrl.dom_tld_finished = domains
+        self.logger.info(f"Loaded {len(domains)} finished domains")
 
-        # 2. Resume queues
+        # 3. Resume queues
         qin_items = self.load_pickle('qin') or []
         for itm in qin_items:
             self.ctrl.shared_qin.put(itm)
@@ -50,23 +58,16 @@ class ResumeState:
         for itm in qout_items:
             self.ctrl.shared_qout.put(itm)
 
-        # 3. Resume seen filter
+        # 4. Resume seen filter
         try:
             path = self.get_path('seen')
             self.ctrl.seen_filter.load(path)
             self.logger.info(f"Loaded seen state with {self.ctrl.seen_filter.bloom_len()} items.")
         except Exception as e:
             self.logger.warning(f"Seen filter error, skipping for: {e}")
-        
-        # 5. Resume domain stats internals
-        ds = self.load_pickle('dom_stats')
-        if ds is not None:
-            try:
-                self.ctrl.shared_dom_stats.restore(ds)
-            except AttributeError:
-                self.logger.warning("DomainStats lacks restore(), skipping stats resume")
 
         return True
+
 
 class SaveState:
     def __init__(self, conf, controller):
@@ -122,6 +123,7 @@ class SaveState:
             try:
                 ds_data = self.ctrl.shared_dom_stats.serialize()  # assumes method returns dict
                 self.save_pickle(ds_data, 'dom_stats')
+                self.logger.debug(f"Saved ds_data Serialized Stats keys: {ds_data.keys()}")
             except Exception as e:
                 self.logger.warning(f"Could not serialize domain stats: {e}")
 

@@ -56,7 +56,8 @@ class BaseCrawlController:
 
         # Informations by domain
         self.shared_qstats = self.manager.Queue()
-        self.shared_dom_stats = cls_domain_stats.SharedDomainStats(manager, self.shared_lock, self.shared_qstats)
+        self.shared_dom_stats = cls_domain_stats.SharedDomainStats(
+            manager, self.logger, self.shared_lock, self.shared_qstats)
         
         self.lifo_manager = self._get_manager()
         self.queue_out_handler = None

@@ -35,7 +35,6 @@ class QueueOut:
         processed = 0
 
         for url in self.conf['domains']:
-            # self.logger.info(url)
             try:
                 if not url:
                     continue
@@ -43,7 +42,7 @@ class QueueOut:
                 processed += 1
                 percent = round((processed / total) * 100, 2)
 
-                if processed % max(1, total // 20) == 0:  # Log every ~5% steps
+                if processed % max(1, total // 20) == 0:
                     self.logger.info(f"Progress: {percent}% ({processed}/{total})")
 
                 sub, dom, tld, path = domains.get_url_parts(url)
@@ -54,36 +53,30 @@ class QueueOut:
                     self.logger.warning(f'{url} excluded for domain exclusion')
                     continue
 
-                if dom_tld in self.dom_stats.dom_missing:
+                # Check if domain already exists (considering redirects)
+                final_dom_tld = self.dom_stats.get_final_domain(dom_tld)
+                if final_dom_tld in self.dom_stats.dom_missing:
+                    # self.logger.debug(f'{dom_tld} already in queue (or redirected to {final_dom_tld})')
                     continue
-                self.dom_stats.add_domain(dom_tld)
-                
+                    
                 if not validators.domain(dom_tld):
                     self.logger.info(f"{url} not valid domain")
                     continue
 
-                if dom_tld in self.dom_tld_finished:
-                    # self.logger.warning(f'{url} already finished')
+                # Check if the domain (or its redirect target) is finished
+                if dom_tld in self.dom_tld_finished or final_dom_tld in self.dom_tld_finished:
+                    self.logger.info(f'{url} already finished (original or redirect target)')
                     self.tot_finished += 1
                     continue
 
-                # self.logger.info(stage)
-                # if stage in ['crawl', 'unified']:
-                #     self.fullfill_q(url, dom_tld, rd='landing_page', depth=0, engine=self.engine_selector.next())
-
-                # elif stage == 'spider':
-                #     all_links = self.all_links(dom_tld, stage)
-                #     self.fullfill_q_all_links(all_links, dom_tld, engine=self.engine_selector.next())
-                
+                # Add the domain with its original name
+                self.dom_stats.add_domain(dom_tld)
+                self.logger.debug(f"Added {dom_tld}")
                 self.fullfill_q(url, dom_tld, rd='landing_page', depth=0, engine=self.engine_selector.next())
-                
 
             except Exception as e:
                 self.logger.error(e)
                 continue
-
-            # print(self.dom_stats.dom_missing)
-            # raise Exception("ot")
 
         try:
             tt = round((time.time() - t0), 5)

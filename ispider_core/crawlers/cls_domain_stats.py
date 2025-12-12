@@ -2,7 +2,7 @@ import queue
 from datetime import datetime 
 
 class SharedDomainStats:
-    def __init__(self, manager, lock, qstats=None):
+    def __init__(self, manager, logger, lock, qstats=None):
         self.lock = lock
         self.qstats = qstats
         self.local_stats = dict()
@@ -11,6 +11,8 @@ class SharedDomainStats:
         self.dom_last_call = manager.dict()
         self.dom_engine = manager.dict()
         self.dom_redirects = manager.dict()
+        self.logger = logger
+        
 
     def register_redirect(self, original_dom_tld, final_dom_tld):
         """Register a domain redirect and transfer stats to final domain"""
@@ -60,6 +62,8 @@ class SharedDomainStats:
                 if original_dom_tld in self.local_stats:
                     del self.local_stats[original_dom_tld]
                 
+                self.logger.info(f"Redirect registered: {original_dom_tld} -> {final_dom_tld}")
+        
         return final_dom_tld
     
     def get_final_domain(self, dom_tld):
@@ -138,15 +142,35 @@ class SharedDomainStats:
         with self.lock:
             self.dom_last_call[dom_tld] = datetime.now()
 
-        
+    def is_domain_finished(self, dom_tld):
+        """Check if a domain (or its redirect target) is finished"""
+        final_dom = self.get_final_domain(dom_tld)
+        with self.lock:
+            return self.dom_missing.get(final_dom, -1) == 0
+
     def get_finished_domains(self):
-        return [k for k, v in self.dom_missing.items() if v == 0]
+        """Returns all finished domains, including original names that redirected"""
+        finished = []
+        with self.lock:
+            # Get directly finished domains
+            finished = [k for k, v in self.dom_missing.items() if v == 0]
+            
+            # Add reverse mappings: if final domain is finished, original is too
+            reverse_redirects = {}
+            for orig, final in self.dom_redirects.items():
+                if final not in reverse_redirects:
+                    reverse_redirects[final] = []
+                reverse_redirects[final].append(orig)
+            
+            # Add original domains whose final destination is finished
+            for final_dom in finished:
+                if final_dom in reverse_redirects:
+                    finished.extend(reverse_redirects[final_dom])
+        
+        return list(set(finished))  # Remove duplicates
 
     def get_unfinished_domains(self):
         return [k for k, v in self.dom_missing.items() if v > 0]
-
-    def get_total_pages(self, dom_tld):
-        return self.dom_total[dom_tld]
 
     def get_tot_domains(self):
         return len(self.dom_missing)
@@ -157,20 +181,6 @@ class SharedDomainStats:
     def get_sorted_missing(self, reverse=True):
         return dict(sorted(self.dom_missing.items(), key=lambda item: item[1], reverse=reverse))
     
-    def serialize(self) -> dict:
-        """Return a serializable dict of the current state."""
-        with self.lock:
-            return {
-                "dom_missing": dict(self.dom_missing),
-                "dom_total": dict(self.dom_total),
-                "dom_last_call": {
-                    k: v.isoformat() if v is not None else None
-                    for k, v in dict(self.dom_last_call).items()
-                },
-                "dom_engine": dict(self.dom_engine),
-                "local_stats": dict(self.local_stats),
-            }
-
     def increase_script_counters(self, rd, script_controller):
         """
         Increment the unified counters (landings/robots/sitemaps/internal_urls)
@@ -185,26 +195,6 @@ class SharedDomainStats:
                 script_controller["sitemaps"] = script_controller.get("sitemaps", 0) + 1
             elif rd == "internal_url":
                 script_controller["internal_urls"] = script_controller.get("internal_urls", 0) + 1
-
-    def restore(self, state: dict):
-        """Restore the state from a previously saved dict."""
-        with self.lock:
-            self.dom_missing.clear()
-            self.dom_total.clear()
-            self.dom_last_call.clear()
-            self.dom_engine.clear()
-            self.local_stats.clear()
-
-            for k, v in state.get("dom_missing", {}).items():
-                self.dom_missing[k] = v
-            for k, v in state.get("dom_total", {}).items():
-                self.dom_total[k] = v
-            for k, v in state.get("dom_last_call", {}).items():
-                self.dom_last_call[k] = datetime.fromisoformat(v) if v is not None else None
-            for k, v in state.get("dom_engine", {}).items():
-                self.dom_engine[k] = v
-            for k, v in state.get("local_stats", {}).items():
-                self.local_stats[k] = v
                 
     def filter_and_add_links(self, dom_tld, links, max_pages):
         """Filter links to avoid exceeding max_pages, and update counters safely."""
