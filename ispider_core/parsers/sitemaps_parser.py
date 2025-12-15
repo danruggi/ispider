@@ -30,7 +30,7 @@ class SitemapParser:
         Extract links from XML or TXT sitemaps.
         This is the old get_links_from_xml
         """
-        if not data or len(data) > self.conf['MAX_CRAWL_DUMP_SIZE']:
+        if not data or len(data) > self.conf.get('MAX_CRAWL_DUMP_SIZE', 52428800):
             self.logger.warning("Sitemap too big or empty, skipping...")
             return set()
 
