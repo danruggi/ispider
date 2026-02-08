@@ -3,7 +3,7 @@ import pandas as pd
 
 if __name__ == '__main__':
     config_overrides = {
-        'USER_FOLDER': '/home/dany/test_scrape_13',
+        'USER_FOLDER': '/home/dany/test_scrape_15',
         'POOLS': 32,
         'ASYNC_BLOCK_SIZE': 32,
         'MAXIMUM_RETRIES': 0,
@@ -12,7 +12,7 @@ if __name__ == '__main__':
         'MAX_PAGES_POR_DOMAIN': 100000,
         'ENGINES': ['httpx', 'curl'],
         'LOG_LEVEL': 'DEBUG',
-        'CRAWL_METHODS': ['robots', 'sitemaps'],
+        'CRAWL_METHODS': [],
         'TIMEOUT': 30,
         'RESUME': True,
         # SEO modular checks
@@ -23,9 +23,16 @@ if __name__ == '__main__':
         'SEO_DISABLED_CHECKS': [],
         'SEO_H1_MAX_CHARS': 70,
         'INCLUDED_EXPRESSIONS_URL': [
-            r'^(?!https?://[^/]+/2026/02/08/.*'
+            r'^(?!https?://[a-z.]+/$',
+            r'^(?!https?://[^/]+/2026/02/08/.*',
         ],
     }
+    doms = ['elmomentoqroo.mx']
+    # doms = []
+    with ISpider(domains=doms, **config_overrides) as spider:
+        spider.run()
+    
+    
 
     # df = pd.read_csv('t.csv')
     # doms = df['dom_tld'].tolist()
@@ -41,9 +48,3 @@ if __name__ == '__main__':
     # doms = ['gitea.io']
 
     # doms = ['deskydoo.com']
-    doms = ['elmomentoqroo.mx']
-    # doms = []
-    with ISpider(domains=doms, **config_overrides) as spider:
-        spider.run()
-    
-    
