@@ -19,11 +19,12 @@ from ispider_core.utils import domains
 
 from ispider_core.parsers.html_parser import HtmlParser
 from ispider_core.parsers.sitemaps_parser import SitemapParser
+from ispider_core.seo import SeoRunner
 
 
 def call_and_manage_resps(
     reqAL, mod, lock_driver, exclusion_list, seen_filter,
-    dom_stats, script_controller, conf, logger, hdrs, qout):
+    dom_stats, script_controller, conf, logger, hdrs, qout, seo_runner):
 
     html_parser = HtmlParser(logger, conf)
     
@@ -91,6 +92,8 @@ def call_and_manage_resps(
         
         logger.debug(f"[{mod}] [{status_code}] -- D:{depth} -- R: {retries} -- E:{current_engine} -- [{dom_tld}] {url}")
 
+        resp['seo_issues'] = seo_runner.run(resp)
+
         # **********************
         # INCREASE COUNTERS
         dom_stats.increase_script_counters(rd, script_controller)
@@ -157,6 +160,7 @@ def unified(mod, conf, exclusion_list, seen_filter,
     
     t0 = time.time()
     hdrs = headers.get_header('basics')
+    seo_runner = SeoRunner(conf, logger)
 
     try:
 
@@ -181,7 +185,7 @@ def unified(mod, conf, exclusion_list, seen_filter,
                 call_and_manage_resps(
                     urls, mod, lock_driver, exclusion_list, seen_filter, 
                     dom_stats, script_controller, 
-                    conf, logger, hdrs, qout)
+                    conf, logger, hdrs, qout, seo_runner)
                 
                 with lock:
                     script_controller['tot_counter'] += len(urls)
@@ -193,7 +197,7 @@ def unified(mod, conf, exclusion_list, seen_filter,
             call_and_manage_resps(
                 urls, mod, lock_driver, exclusion_list, seen_filter, 
                 dom_stats, script_controller, 
-                conf, logger, hdrs, qout)
+                conf, logger, hdrs, qout, seo_runner)
             
             with lock:
                 script_controller['tot_counter'] += len(urls)
