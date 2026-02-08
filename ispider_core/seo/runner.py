@@ -35,7 +35,7 @@ class SeoRunner:
             "schema_news_article": SchemaNewsArticleCheck(),
             "image_optimization": ImageOptimizationCheck(),
             "internal_linking": InternalLinkingCheck(),
-            "url_hygiene": UrlHygieneCheck(),
+            "url_hygiene": UrlHygieneCheck(news_path_regex=r"^(?:/[a-z0-9-]+)*/\d{4}/\d{2}/\d{2}/[a-z0-9-]+/?$"),
             "content_length": ContentLengthCheck(),
             "security_headers": SecurityHeadersCheck(),
         }

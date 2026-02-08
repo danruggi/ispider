@@ -1,6 +1,6 @@
 import json
 import re
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse, parse_qsl, urlencode
 
 from bs4 import BeautifulSoup
 
@@ -209,11 +209,42 @@ class ImageOptimizationCheck:
         return issues
 
 
+
+
 class InternalLinkingCheck:
     name = "internal_linking"
 
     def __init__(self, max_external_links=30):
+        # Interpreted as max UNIQUE external domains
         self.max_external_links = max_external_links
+
+        # common tracking params to drop
+        self._tracking_keys = {
+            "fbclid", "gclid", "dclid", "msclkid", "igshid", "mc_cid", "mc_eid"
+        }
+
+    def _norm_host(self, netloc: str) -> str:
+        h = (netloc or "").lower()
+        return h[4:] if h.startswith("www.") else h
+
+    def _strip_tracking(self, href: str) -> str:
+        p = urlparse(href)
+
+        # remove utm_* and a few known tracking keys; also drop fragment
+        q = [
+            (k, v)
+            for (k, v) in parse_qsl(p.query, keep_blank_values=True)
+            if not (k.lower().startswith("utm_") or k.lower() in self._tracking_keys)
+        ]
+
+        return urlunparse((
+            p.scheme,
+            p.netloc,
+            p.path,
+            "",  # drop params
+            urlencode(q, doseq=True),
+            ""   # drop fragment
+        ))
 
     def run(self, resp: dict):
         if resp.get("status_code") != 200:
@@ -227,28 +258,52 @@ class InternalLinkingCheck:
         soup = BeautifulSoup(content.decode("utf-8", errors="ignore"), "lxml")
         anchors = soup.find_all("a", href=True)
 
-        host = urlparse(url).netloc
+        page_host = self._norm_host(urlparse(url).netloc)
+
         internal_count = 0
-        external_count = 0
         weak_anchor_count = 0
 
+        external_raw = 0
+        external_domains = set()   # unique domains
+        # external_urls = set()    # (optional) unique normalized URLs
+
         for a in anchors:
-            href = a.get("href", "").strip()
+            href = (a.get("href") or "").strip()
+            if not href:
+                continue
+
             text = a.get_text(" ", strip=True).lower()
             if text in {"click here", "read more", "more"}:
                 weak_anchor_count += 1
 
+            # internal relative
+            if href.startswith("/"):
+                internal_count += 1
+                continue
+
+            # absolute http(s)
             if href.startswith("http://") or href.startswith("https://"):
-                if urlparse(href).netloc == host:
+                href2 = self._strip_tracking(href)
+                h = self._norm_host(urlparse(href2).netloc)
+
+                if h == page_host or not h:
                     internal_count += 1
                 else:
-                    external_count += 1
-            elif href.startswith("/"):
-                internal_count += 1
+                    external_raw += 1
+                    external_domains.add(h)
+                    # external_urls.add(href2)
+                continue
+
+            # everything else ignored: mailto:, tel:, javascript:, #, etc.
+
+        external_unique = len(external_domains)  # <-- use this for threshold
 
         issues = []
         if internal_count == 0:
-            issues.append(SeoIssue("NO_INTERNAL_LINKS", "medium", "No internal links detected on page", self.name, url))
+            issues.append(
+                SeoIssue("NO_INTERNAL_LINKS", "medium", "No internal links detected on page", self.name, url)
+            )
+
         if weak_anchor_count > 0:
             issues.append(
                 SeoIssue(
@@ -259,18 +314,20 @@ class InternalLinkingCheck:
                     url,
                 )
             )
-        if external_count > self.max_external_links:
+
+        if external_unique > self.max_external_links:
             issues.append(
                 SeoIssue(
                     "TOO_MANY_EXTERNAL_LINKS",
                     "low",
-                    f"Detected {external_count} external links",
+                    f"Detected {external_unique} unique external domains (raw links: {external_raw})",
                     self.name,
                     url,
                 )
             )
 
         return issues
+
 
 
 class SecurityHeadersCheck:
