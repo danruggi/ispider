@@ -49,7 +49,6 @@ class SeoRunner:
             selected = set(enabled)
 
         active_names = [name for name in available if name in selected and name not in disabled]
-        self.logger.info(f"SEO checks enabled: {', '.join(active_names)}")
         return [available[name] for name in active_names]
 
     def run(self, resp: dict):
