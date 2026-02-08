@@ -93,9 +93,7 @@ INCLUDED_EXPRESSIONS_URL = [
 RESUME = False
 
 # SEO modular checks
-SEO_CHECKS_ENABLED = True
-# If empty, all available checks are enabled
+SEO_CHECKS_ENABLED = False
 SEO_ENABLED_CHECKS = []
-# Explicitly disable one or more checks
 SEO_DISABLED_CHECKS = []
 SEO_H1_MAX_CHARS = 70
