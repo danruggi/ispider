@@ -1,7 +1,15 @@
 import re
+from urllib.parse import urlparse
 from ispider_core.parsers.html_parser import HtmlParser
 from ispider_core.parsers.sitemaps_parser import SitemapParser
 from ispider_core.utils import domains
+
+
+def _is_root_domain_url(link):
+    """Return True when URL points to a bare domain (landing page)."""
+    parsed = urlparse(link)
+    path = parsed.path or ''
+    return bool(parsed.netloc) and path in ['', '/']
 
 
 def _apply_url_filters(links, conf):
@@ -11,7 +19,7 @@ def _apply_url_filters(links, conf):
     if include_regexes:
         links = [
             link for link in links
-            if any(regex.search(link) for regex in include_regexes)
+            if _is_root_domain_url(link) or any(regex.search(link) for regex in include_regexes)
         ]
 
     exclude_regexes = [re.compile(p) for p in conf['EXCLUDED_EXPRESSIONS_URL']]
