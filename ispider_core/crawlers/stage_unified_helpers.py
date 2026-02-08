@@ -3,6 +3,24 @@ from ispider_core.parsers.html_parser import HtmlParser
 from ispider_core.parsers.sitemaps_parser import SitemapParser
 from ispider_core.utils import domains
 
+
+def _apply_url_filters(links, conf):
+    """Apply include/exclude URL regex filters consistently across crawlers."""
+    include_patterns = conf.get('INCLUDED_EXPRESSIONS_URL', [])
+    include_regexes = [re.compile(p) for p in include_patterns]
+    if include_regexes:
+        links = [
+            link for link in links
+            if any(regex.search(link) for regex in include_regexes)
+        ]
+
+    exclude_regexes = [re.compile(p) for p in conf['EXCLUDED_EXPRESSIONS_URL']]
+    links = [
+        link for link in links
+        if not any(regex.search(link) for regex in exclude_regexes)
+    ]
+    return links
+
 def extract_and_queue_html_links(c, dom_stats, qout, conf, logger, current_engine):
     """Extract links from HTML content and add them to the queue"""
     rd = c['request_discriminator']
@@ -24,21 +42,7 @@ def extract_and_queue_html_links(c, dom_stats, qout, conf, logger, current_engin
     html_parser = HtmlParser(logger, conf)
     links = html_parser.extract_urls_from_content(dom_tld, sub_dom_tld, c['content'])
 
-    # Apply URL inclusion filters first (if configured)
-    include_patterns = conf.get('INCLUDED_EXPRESSIONS_URL', [])
-    include_regexes = [re.compile(p) for p in include_patterns]
-    if include_regexes:
-        links = [
-            link for link in links
-            if any(regex.search(link) for regex in include_regexes)
-        ]
-
-    # Apply URL exclusion filters
-    exclude_regexes = [re.compile(p) for p in conf['EXCLUDED_EXPRESSIONS_URL']]
-    links = [
-        link for link in links
-        if not any(regex.search(link) for regex in exclude_regexes)
-    ]
+    links = _apply_url_filters(links, conf)
 
     links = dom_stats.filter_and_add_links(dom_tld, links, conf['MAX_PAGES_POR_DOMAIN'])
     for link in links:
@@ -62,6 +66,7 @@ def extract_and_queue_sitemap_links(c, dom_stats, qout, conf, logger, current_en
     # Extract links from sitemap content
     smp = SitemapParser(logger, conf)
     sitemap_links = smp.extract_all_links(c['content'])
+    sitemap_links = _apply_url_filters(sitemap_links, conf)
 
     links = dom_stats.filter_and_add_links(dom_tld, sitemap_links, conf['MAX_PAGES_POR_DOMAIN'])
     for link in links:
