@@ -191,3 +191,23 @@ Actual default settings are:
 # NOTES
 - Deduplication is not 100% safe, sometimes pages are downloaded multiple times, and skipped in file check. 
 On ~10 domains, check duplication has small delay. But on 10000 domains after 500k links, the domain list is so big that checking if a link is already downloaded or not was decreasing considerably the speed (from 30000 urls/min to 300 urls/min). That's why I preferred avoid a list, and left just "check file". 
+
+## SEO checks (modular)
+You can run independent SEO checks during crawling/spidering. Results are stored in each JSON response row under `seo_issues`.
+
+Default checks included:
+- `broken_links` (status code >= 400)
+- `http_status_503`
+- `h1_too_long`
+
+Configure with settings:
+```python
+config_overrides = {
+    'SEO_CHECKS_ENABLED': True,
+    'SEO_ENABLED_CHECKS': ['broken_links', 'h1_too_long'],
+    'SEO_DISABLED_CHECKS': ['http_status_503'],
+    'SEO_H1_MAX_CHARS': 70,
+}
+```
+
+To add a new check, create a class in `ispider_core/seo/checks/` with `name` and `run(resp)` and register it in `ispider_core/seo/runner.py`.
