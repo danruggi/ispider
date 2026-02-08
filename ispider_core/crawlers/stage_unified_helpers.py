@@ -24,11 +24,20 @@ def extract_and_queue_html_links(c, dom_stats, qout, conf, logger, current_engin
     html_parser = HtmlParser(logger, conf)
     links = html_parser.extract_urls_from_content(dom_tld, sub_dom_tld, c['content'])
 
+    # Apply URL inclusion filters first (if configured)
+    include_patterns = conf.get('INCLUDED_EXPRESSIONS_URL', [])
+    include_regexes = [re.compile(p) for p in include_patterns]
+    if include_regexes:
+        links = [
+            link for link in links
+            if any(regex.search(link) for regex in include_regexes)
+        ]
+
     # Apply URL exclusion filters
-    regexes = [re.compile(p) for p in conf['EXCLUDED_EXPRESSIONS_URL']]
+    exclude_regexes = [re.compile(p) for p in conf['EXCLUDED_EXPRESSIONS_URL']]
     links = [
         link for link in links
-        if not any(regex.search(link) for regex in regexes)
+        if not any(regex.search(link) for regex in exclude_regexes)
     ]
 
     links = dom_stats.filter_and_add_links(dom_tld, links, conf['MAX_PAGES_POR_DOMAIN'])
