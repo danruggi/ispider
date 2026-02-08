@@ -84,6 +84,12 @@ EXCLUDED_EXPRESSIONS_URL = [
     # r'test',
 ]
 
+# If not empty, keep only URLs matching at least one of these regex patterns.
+# Useful to focus crawling on specific URL path structures.
+INCLUDED_EXPRESSIONS_URL = [
+    # r'/\d{4}/\d{2}/\d{2}/',
+]
+
 RESUME = False
 
 # SEO modular checks

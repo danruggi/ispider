@@ -127,6 +127,8 @@ class SpiderConfig(BaseModel):
     sitemaps_max_depth: int = 2
     timeout: int = 5
     resume: bool = False
+    excluded_expressions_url: List[str] = []
+    included_expressions_url: List[str] = []
 
 class DomainAddRequest(BaseModel):
     domains: List[str]

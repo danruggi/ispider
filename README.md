@@ -185,6 +185,11 @@ Actual default settings are:
             # r'test',
         ]
 
+        # If not empty, follow only URLs that match these regex patterns
+        INCLUDED_EXPRESSIONS_URL = [
+            # r'/\d{4}/\d{2}/\d{2}/',
+        ]
+
         """
 
 
