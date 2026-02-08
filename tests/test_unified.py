@@ -3,7 +3,7 @@ import pandas as pd
 
 if __name__ == '__main__':
     config_overrides = {
-        'USER_FOLDER': '/home/dany/test_scrape_15',
+        'USER_FOLDER': '/home/dany/test_scrape_17',
         'POOLS': 32,
         'ASYNC_BLOCK_SIZE': 32,
         'MAXIMUM_RETRIES': 0,
@@ -17,14 +17,11 @@ if __name__ == '__main__':
         'RESUME': True,
         # SEO modular checks
         'SEO_CHECKS_ENABLED': True,
-        # If empty, all available checks are enabled
         'SEO_ENABLED_CHECKS': [],
-        # Explicitly disable one or more checks
         'SEO_DISABLED_CHECKS': [],
         'SEO_H1_MAX_CHARS': 70,
         'INCLUDED_EXPRESSIONS_URL': [
-            r'^(?!https?://[a-z.]+/$',
-            r'^(?!https?://[^/]+/2026/02/08/.*',
+            r'^.*/2026/02/08/.*$'
         ],
     }
     doms = ['elmomentoqroo.mx']
