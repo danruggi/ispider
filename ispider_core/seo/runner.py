@@ -1,5 +1,19 @@
+from ispider_core.seo.checks.content_quality import (
+    ContentLengthCheck,
+    HeadingStructureCheck,
+    TitleMetaQualityCheck,
+    UrlHygieneCheck,
+)
 from ispider_core.seo.checks.headings import H1TooLongCheck
 from ispider_core.seo.checks.http_status import BrokenLinkCheck, HttpStatus503Check
+from ispider_core.seo.checks.technical import (
+    ImageOptimizationCheck,
+    IndexabilityCanonicalCheck,
+    InternalLinkingCheck,
+    ResponseCrawlabilityCheck,
+    SchemaNewsArticleCheck,
+    SecurityHeadersCheck,
+)
 
 
 class SeoRunner:
@@ -14,6 +28,16 @@ class SeoRunner:
             "broken_links": BrokenLinkCheck(),
             "http_status_503": HttpStatus503Check(),
             "h1_too_long": H1TooLongCheck(max_chars=max_h1_chars),
+            "response_crawlability": ResponseCrawlabilityCheck(),
+            "title_meta_quality": TitleMetaQualityCheck(),
+            "heading_structure": HeadingStructureCheck(),
+            "indexability_canonical": IndexabilityCanonicalCheck(),
+            "schema_news_article": SchemaNewsArticleCheck(),
+            "image_optimization": ImageOptimizationCheck(),
+            "internal_linking": InternalLinkingCheck(),
+            "url_hygiene": UrlHygieneCheck(),
+            "content_length": ContentLengthCheck(),
+            "security_headers": SecurityHeadersCheck(),
         }
 
         enabled = self.conf.get("SEO_ENABLED_CHECKS")

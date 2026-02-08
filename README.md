@@ -200,19 +200,31 @@ On ~10 domains, check duplication has small delay. But on 10000 domains after 50
 ## SEO checks (modular)
 You can run independent SEO checks during crawling/spidering. Results are stored in each JSON response row under `seo_issues`.
 
-Default checks included:
-- `broken_links` (status code >= 400)
-- `http_status_503`
-- `h1_too_long`
+Available checks:
+- `response_crawlability`: flags 3xx/4xx/5xx, redirect chains, and timeouts.
+- `broken_links`: generic status >= 400 detector.
+- `http_status_503`: dedicated 503 detector.
+- `title_meta_quality`: validates `<title>` and meta description length/presence and flags `title == h1`.
+- `h1_too_long`: validates H1 length threshold.
+- `heading_structure`: checks h1 count and heading-order skips.
+- `indexability_canonical`: checks canonical presence/self-reference, homepage canonicals, and `noindex` directives.
+- `schema_news_article`: detects `NewsArticle` structured data and required properties.
+- `image_optimization`: flags missing image dimensions/ALT and oversized hero hints.
+- `internal_linking`: flags weak anchors, no internal links, and too many external links.
+- `url_hygiene`: validates URL length/case/params/special chars and the newsroom pattern `/yyyy/mm/dd/slug/`.
+- `content_length`: flags thin content (default `<250` words).
+- `security_headers`: checks HSTS, CSP, and X-Frame-Options.
 
 Configure with settings:
 ```python
 config_overrides = {
     'SEO_CHECKS_ENABLED': True,
-    'SEO_ENABLED_CHECKS': ['broken_links', 'h1_too_long'],
+    'SEO_ENABLED_CHECKS': ['response_crawlability', 'title_meta_quality', 'schema_news_article'],
     'SEO_DISABLED_CHECKS': ['http_status_503'],
     'SEO_H1_MAX_CHARS': 70,
 }
 ```
+
+Tip for Google News-focused runs: combine `INCLUDED_EXPRESSIONS_URL` with a day filter (example: `r'^.*/2026/02/07/.*$'`) and keep `response_crawlability`, `indexability_canonical`, and `schema_news_article` enabled.
 
 To add a new check, create a class in `ispider_core/seo/checks/` with `name` and `run(resp)` and register it in `ispider_core/seo/runner.py`.

@@ -132,6 +132,10 @@ async def fetch_with_httpx(reqA, client, mod):
         metadata['accept_ranges'] = response.headers.get("accept-ranges")
         metadata['x_powered_by'] = response.headers.get("x-powered-by")
         metadata['server_date'] = response.headers.get('date')
+        metadata['x_robots_tag'] = response.headers.get('x-robots-tag')
+        metadata['strict_transport_security'] = response.headers.get('strict-transport-security')
+        metadata['content_security_policy'] = response.headers.get('content-security-policy')
+        metadata['x_frame_options'] = response.headers.get('x-frame-options')
 
         # Cookies
         metadata['has_cookies'] = bool(response.cookies)
