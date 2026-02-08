@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 from datetime import datetime
 
 from ispider_core.utils import domains
+from ispider_core import settings
 
 def dump_to_file(c, conf):
     rd = c['request_discriminator']
@@ -100,7 +101,8 @@ def write_positive_json(resp, conf, mod):
         json.dump(resp, f)
         f.write('\n')
 
-    if os.path.getsize(dump_fname) > conf['MAX_CRAWL_DUMP_SIZE']:
+    max_dump_size = conf.get('MAX_CRAWL_DUMP_SIZE', settings.MAX_CRAWL_DUMP_SIZE)
+    if os.path.getsize(dump_fname) > max_dump_size:
         current_time = datetime.now().strftime("%Y%m%d%H%M%S")
         new_name = f"unified_conn_meta.{mod}.{current_time}.json"
         os.replace(dump_fname, os.path.join(conf['path_jsons'], new_name))
@@ -116,10 +118,10 @@ def write_negative_json(resp, conf, mod):
         json.dump(safe, f)
         f.write('\n')
 
-    if os.path.getsize(dump_fname) > conf['MAX_CRAWL_DUMP_SIZE']:
+    max_dump_size = conf.get('MAX_CRAWL_DUMP_SIZE', settings.MAX_CRAWL_DUMP_SIZE)
+    if os.path.getsize(dump_fname) > max_dump_size:
         current_time = datetime.now().strftime("%Y%m%d%H%M%S")
         new_name = f"unified_conn_meta.{mod}.{current_time}.json"
         os.replace(dump_fname, os.path.join(conf['path_jsons'], new_name))
-
 
 
