@@ -186,17 +186,24 @@ class ImageOptimizationCheck:
             return []
 
         issues = []
+        alt_missing_reported = False
         for i, img in enumerate(images):
-            if not (img.get("width") and img.get("height")):
-                issues.append(SeoIssue("IMAGE_DIMENSIONS_MISSING", "low", "Image missing width/height attributes", self.name, resp.get("url", "")))
-                break
-
             alt = img.get("alt")
-            if alt is None or not str(alt).strip():
+            if (alt is None or not str(alt).strip()) and not alt_missing_reported:
                 issues.append(SeoIssue("IMAGE_ALT_MISSING", "low", "Image missing alt text", self.name, resp.get("url", "")))
-                break
+                alt_missing_reported = True
 
             if i == 0:
+                if (img.get("fetchpriority") or "").strip().lower() != "high":
+                    issues.append(
+                        SeoIssue(
+                            "HERO_IMAGE_FETCHPRIORITY_MISSING",
+                            "low",
+                            "Hero image missing fetchpriority=high",
+                            self.name,
+                            resp.get("url", ""),
+                        )
+                    )
                 src = img.get("src", "")
                 if "size=" in src:
                     try:
@@ -205,6 +212,20 @@ class ImageOptimizationCheck:
                             issues.append(SeoIssue("HERO_IMAGE_TOO_LARGE", "medium", "Hero image appears larger than 100KB", self.name, resp.get("url", "")))
                     except Exception:
                         pass
+                continue
+
+            loading = (img.get("loading") or "").strip().lower()
+            if loading != "lazy":
+                issues.append(
+                    SeoIssue(
+                        "IMAGE_LAZY_LOADING_MISSING",
+                        "low",
+                        "Non-hero images should use loading=lazy",
+                        self.name,
+                        resp.get("url", ""),
+                    )
+                )
+                break
 
         return issues
 

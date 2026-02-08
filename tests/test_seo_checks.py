@@ -63,11 +63,22 @@ def test_schema_news_article_missing_required_fields():
     assert issues and issues[0].code == "SCHEMA_REQUIRED_FIELDS_MISSING"
 
 
-def test_image_optimization_flags_missing_attrs():
-    html = '<img src="/hero.jpg" /><img src="/a.jpg" width="1" height="1" />'
+def test_image_optimization_flags_modern_issues():
+    html = '<img src="/hero.jpg" /><img src="/a.jpg" alt="inline" />'
     issues = ImageOptimizationCheck().run(_resp(html=html))
     codes = {i.code for i in issues}
-    assert "IMAGE_DIMENSIONS_MISSING" in codes
+    assert "IMAGE_ALT_MISSING" in codes
+    assert "HERO_IMAGE_FETCHPRIORITY_MISSING" in codes
+    assert "IMAGE_LAZY_LOADING_MISSING" in codes
+
+
+def test_image_optimization_passes_modern_expectations():
+    html = (
+        '<img src="/hero.jpg" alt="hero" fetchpriority="high" />'
+        '<img src="/a.jpg" alt="inline" loading="lazy" />'
+    )
+    issues = ImageOptimizationCheck().run(_resp(html=html))
+    assert not issues
 
 
 def test_internal_linking_flags_none_and_weak_text():
