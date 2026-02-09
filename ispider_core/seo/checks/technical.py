@@ -91,6 +91,7 @@ class SchemaNewsArticleCheck:
     name = "schema_news_article"
     required_fields = ["headline", "datePublished", "dateModified", "author", "image", "publisher"]
     news_types = {
+        "Article",
         "NewsArticle",
         "ReportageNewsArticle",
         "AnalysisNewsArticle",
@@ -119,6 +120,8 @@ class SchemaNewsArticleCheck:
                 payloads.append(json.loads(html.unescape(raw)))
             except Exception:
                 payloads.append(raw)
+
+        print(payloads)
 
         news_obj = self._find_news_article(payloads)
         if not news_obj:
@@ -365,7 +368,7 @@ class InternalLinkingCheck:
 
             if href.startswith("//"):
                 href = "https:" + href
-                
+
             # absolute http(s)
             if href.startswith("http://") or href.startswith("https://"):
                 href2 = self._strip_tracking(href)
