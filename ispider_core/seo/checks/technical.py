@@ -121,8 +121,6 @@ class SchemaNewsArticleCheck:
             except Exception:
                 payloads.append(raw)
 
-        print(payloads)
-
         news_obj = self._find_news_article(payloads)
         if not news_obj:
             return [SeoIssue("SCHEMA_NEWSARTICLE_MISSING", "high", "NewsArticle schema not found", self.name, resp.get("url", ""))]
