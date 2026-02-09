@@ -90,6 +90,8 @@ class SchemaNewsArticleCheck:
     required_fields = ["headline", "datePublished", "dateModified", "author", "image", "publisher"]
 
     def run(self, resp: dict):
+        if resp.get("request_discriminator") == "landing_page":
+            return []
         if resp.get("status_code") != 200:
             return []
         content = resp.get("content")
