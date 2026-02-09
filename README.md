@@ -215,6 +215,47 @@ Available checks:
 - `content_length`: flags thin content (default `<250` words).
 - `security_headers`: checks HSTS, CSP, and X-Frame-Options.
 
+### SEO issue codes (priority + short description)
+
+| Code | Priority | Description |
+|---|---|---|
+| `BROKEN_LINK` | medium | URL returned an HTTP status code >= 400. |
+| `CANONICAL_MISSING` | medium | Canonical tag is missing. |
+| `CANONICAL_NOT_SELF` | low | Canonical URL is not self-referential. |
+| `CANONICAL_TO_HOMEPAGE` | high | Canonical points to homepage from an internal page. |
+| `CONTENT_TOO_THIN` | medium | Visible content word count is below the configured minimum. |
+| `H1_MISSING` | high | No H1 heading found on the page. |
+| `H1_MULTIPLE` | high | More than one H1 heading found. |
+| `H1_TOO_LONG` | low | H1 text length exceeds configured maximum (`SEO_H1_MAX_CHARS`). |
+| `HEADING_ORDER_SKIP` | low | Heading hierarchy skips levels (for example `h2` -> `h4`). |
+| `HERO_IMAGE_FETCHPRIORITY_MISSING` | low | First image is missing `fetchpriority=high`. |
+| `HERO_IMAGE_TOO_LARGE` | medium | Hero image appears larger than configured size threshold. |
+| `HTTP_3XX` | low | Response is a redirect (3xx). |
+| `HTTP_4XX` | high | Response is a client error (4xx). |
+| `HTTP_5XX` | high | Response is a server error (5xx). |
+| `HTTP_503` | high | Response specifically returned 503 Service Unavailable. |
+| `IMAGE_ALT_MISSING` | low | At least one image is missing ALT text. |
+| `IMAGE_LAZY_LOADING_MISSING` | low | Non-hero image missing `loading=lazy`. |
+| `META_DESCRIPTION_LENGTH` | low | Meta description length is outside recommended range. |
+| `META_DESCRIPTION_MISSING` | medium | Meta description is missing. |
+| `NOINDEX_DETECTED` | high | `noindex` detected in meta robots or x-robots-tag. |
+| `NO_INTERNAL_LINKS` | medium | No internal links found on the page. |
+| `REDIRECT_CHAIN` | medium | Redirect chain length is greater than 1. |
+| `REQUEST_TIMEOUT` | high | Request timed out. |
+| `SCHEMA_NEWSARTICLE_MISSING` | high | `NewsArticle` JSON-LD schema not found. |
+| `SCHEMA_REQUIRED_FIELDS_MISSING` | high | `NewsArticle` schema is missing required fields. |
+| `SECURITY_HEADERS_MISSING` | low | One or more security headers are missing (HSTS, CSP, X-Frame-Options). |
+| `TITLE_EQUALS_H1` | low | `<title>` is identical to H1. |
+| `TITLE_LENGTH` | medium | `<title>` length is outside recommended range. |
+| `TITLE_MISSING` | high | `<title>` tag is missing. |
+| `TOO_MANY_EXTERNAL_LINKS` | low | Unique external domains exceed configured threshold. |
+| `URL_HAS_PARAMETERS` | low | URL contains query parameters. |
+| `URL_NEWS_PATTERN_MISMATCH` | medium | URL does not match expected `/yyyy/mm/dd/slug/` pattern. |
+| `URL_SPECIAL_CHARS` | low | URL path contains special characters. |
+| `URL_TOO_LONG` | low | URL length exceeds configured threshold. |
+| `URL_UPPERCASE` | low | URL path contains uppercase letters. |
+| `WEAK_ANCHOR_TEXT` | low | Generic anchor texts detected (for example “read more”, “click here”). |
+
 Configure with settings:
 ```python
 config_overrides = {
