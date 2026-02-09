@@ -100,6 +100,8 @@ class SchemaNewsArticleCheck:
     }
 
     def run(self, resp: dict):
+        if resp.get("request_discriminator") == "landing_page":
+            return []
         if resp.get("status_code") != 200:
             return []
         content = resp.get("content")
