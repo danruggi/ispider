@@ -6,6 +6,8 @@ from bs4 import BeautifulSoup
 
 from ispider_core.seo.base import SeoIssue
 
+import html
+from typing import Any, Optional
 
 class ResponseCrawlabilityCheck:
     name = "response_crawlability"
@@ -88,6 +90,13 @@ class IndexabilityCanonicalCheck:
 class SchemaNewsArticleCheck:
     name = "schema_news_article"
     required_fields = ["headline", "datePublished", "dateModified", "author", "image", "publisher"]
+    news_types = {
+        "NewsArticle",
+        "ReportageNewsArticle",
+        "AnalysisNewsArticle",
+        "BackgroundNewsArticle",
+        "OpinionNewsArticle",
+    }
 
     def run(self, resp: dict):
         if resp.get("status_code") != 200:
@@ -99,22 +108,23 @@ class SchemaNewsArticleCheck:
         soup = BeautifulSoup(content.decode("utf-8", errors="ignore"), "lxml")
         scripts = soup.find_all("script", attrs={"type": "application/ld+json"})
 
-        payloads = []
+        payloads: list[Any] = []
         for script in scripts:
             raw = (script.string or script.get_text() or "").strip()
             if not raw:
                 continue
+
+            # Try normal parse first, but don't lose the raw string if it fails.
             try:
-                data = json.loads(raw)
-                payloads.append(data)
+                payloads.append(json.loads(html.unescape(raw)))
             except Exception:
-                continue
+                payloads.append(raw)
 
         news_obj = self._find_news_article(payloads)
         if not news_obj:
             return [SeoIssue("SCHEMA_NEWSARTICLE_MISSING", "high", "NewsArticle schema not found", self.name, resp.get("url", ""))]
 
-        missing = [field for field in self.required_fields if not self._has_field(news_obj, field)]
+        missing = [f for f in self.required_fields if not self._has_field(news_obj, f)]
         if missing:
             return [
                 SeoIssue(
@@ -128,6 +138,79 @@ class SchemaNewsArticleCheck:
             ]
         return []
 
+    @staticmethod
+    def _coerce_jsonld(obj: Any) -> Any:
+        if isinstance(obj, (dict, list)):
+            return obj
+
+        if isinstance(obj, (bytes, bytearray)):
+            obj = obj.decode("utf-8", "ignore")
+
+        if isinstance(obj, str):
+            s = html.unescape(obj).strip()
+            if not s:
+                return None
+
+            dec = json.JSONDecoder()
+            out = []
+            i = 0
+            while i < len(s):
+                try:
+                    val, j = dec.raw_decode(s, i)
+                    out.append(val)
+                    i = j
+                    while i < len(s) and s[i] in " \t\r\n,":
+                        i += 1
+                except json.JSONDecodeError:
+                    break
+
+            if not out:
+                return None
+            return out[0] if len(out) == 1 else out
+
+        return None
+
+    def _is_news_type(self, typ: Any) -> bool:
+        if typ is None:
+            return False
+        if isinstance(typ, str):
+            t = typ.split(":")[-1].strip()  # schema:NewsArticle
+            return t in self.news_types
+        if isinstance(typ, list):
+            return any(self._is_news_type(t) for t in typ)
+        if isinstance(typ, dict) and "@id" in typ:
+            return self._is_news_type(typ["@id"])
+        return False
+
+    def _walk_for_news(self, obj: Any, _seen: Optional[set[int]] = None):
+        if _seen is None:
+            _seen = set()
+
+        obj = self._coerce_jsonld(obj)
+        if obj is None:
+            return None
+
+        oid = id(obj)
+        if oid in _seen:
+            return None
+        _seen.add(oid)
+
+        if isinstance(obj, dict):
+            if self._is_news_type(obj.get("@type")):
+                return obj
+            for v in obj.values():
+                found = self._walk_for_news(v, _seen)
+                if found:
+                    return found
+
+        elif isinstance(obj, list):
+            for item in obj:
+                found = self._walk_for_news(item, _seen)
+                if found:
+                    return found
+
+        return None
+
     def _find_news_article(self, payloads):
         for obj in payloads:
             found = self._walk_for_news(obj)
@@ -135,29 +218,7 @@ class SchemaNewsArticleCheck:
                 return found
         return None
 
-    def _walk_for_news(self, obj):
-        if isinstance(obj, dict):
-            typ = obj.get("@type")
-            if typ == "NewsArticle" or (isinstance(typ, list) and "NewsArticle" in typ):
-                return obj
-            for key in ("@graph", "mainEntity", "itemListElement"):
-                val = obj.get(key)
-                if val:
-                    found = self._walk_for_news(val)
-                    if found:
-                        return found
-            for val in obj.values():
-                found = self._walk_for_news(val)
-                if found:
-                    return found
-        elif isinstance(obj, list):
-            for item in obj:
-                found = self._walk_for_news(item)
-                if found:
-                    return found
-        return None
-
-    def _has_field(self, obj, field):
+    def _has_field(self, obj: dict, field: str) -> bool:
         val = obj.get(field)
         if isinstance(val, str):
             return bool(val.strip())
@@ -302,6 +363,9 @@ class InternalLinkingCheck:
                 internal_count += 1
                 continue
 
+            if href.startswith("//"):
+                href = "https:" + href
+                
             # absolute http(s)
             if href.startswith("http://") or href.startswith("https://"):
                 href2 = self._strip_tracking(href)
