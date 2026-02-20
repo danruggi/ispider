@@ -129,6 +129,7 @@ class SpiderConfig(BaseModel):
     resume: bool = False
     excluded_expressions_url: List[str] = []
     included_expressions_url: List[str] = []
+    excluded_domains: List[str] = []
 
 class DomainAddRequest(BaseModel):
     domains: List[str]

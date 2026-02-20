@@ -4,6 +4,7 @@ import pandas as pd
 if __name__ == '__main__':
     config_overrides = {
         'USER_FOLDER': '/home/dany/test_scrape_17',
+        'EXCLUDED_DOMAINS': [],
         'POOLS': 32,
         'ASYNC_BLOCK_SIZE': 32,
         'MAXIMUM_RETRIES': 0,

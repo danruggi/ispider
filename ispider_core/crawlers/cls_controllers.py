@@ -1,6 +1,6 @@
 """ crawlers/cls_controller.py """
 from ispider_core.utils.logger import LoggerFactory
-from ispider_core.utils import efiles
+from ispider_core.utils import domains
 from ispider_core.utils import state_manager
 
 from ispider_core.crawlers import cls_queue_out
@@ -73,6 +73,32 @@ class BaseCrawlController:
         self.save_state = state_manager.SaveState(self.conf, self)
 
         self.processes = []
+
+    def _build_exclusion_list(self):
+        raw_excluded_domains = self.conf.get('EXCLUDED_DOMAINS', []) or []
+        exclusion_list = set()
+        skipped = 0
+
+        for raw_domain in raw_excluded_domains:
+            try:
+                domain_input = str(raw_domain).strip().lower()
+                if not domain_input:
+                    skipped += 1
+                    continue
+
+                sub, dom, tld, path = domains.get_url_parts(domain_input)
+                if not dom or not tld:
+                    skipped += 1
+                    continue
+
+                exclusion_list.add(dom)
+                exclusion_list.add(f"{dom}.{tld}")
+            except Exception:
+                skipped += 1
+
+        if skipped:
+            self.logger.debug(f"Skipped {skipped} invalid entries in EXCLUDED_DOMAINS")
+        return exclusion_list
 
     def enqueue_new_domains(self, queue_out_handler):
         try:
@@ -201,7 +227,7 @@ class BaseCrawlController:
         self.logger.info("### BEGINNING CRAWLER")
 
         try:
-            exclusion_list = efiles.load_domains_exclusion_list(self.conf, protocol=False)
+            exclusion_list = self._build_exclusion_list()
             self.logger.info(f"Excluded domains total: {len(exclusion_list)}")
 
             if self.conf['RESUME']:
@@ -296,4 +322,3 @@ class UnifiedController(BaseCrawlController):
     def run(self):
         from ispider_core.crawlers import stage_unified
         return super().run(stage_unified.unified)
-

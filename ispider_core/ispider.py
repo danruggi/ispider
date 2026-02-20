@@ -1,6 +1,5 @@
 import multiprocessing
 import os
-import requests
 import time
 from pathlib import Path
 
@@ -27,7 +26,6 @@ class ISpider:
         
         self.logger = LoggerFactory.create_logger(self.conf, "ispider.log", stdout_flag=True)
         self._prepare_directories()
-        self._download_csv_if_needed()
         
         # self.logger.debug(f"Logger handlers count: {len(self.logger.handlers)}")
 
@@ -83,20 +81,8 @@ class ISpider:
         return user_folder
         
     def _prepare_directories(self):
-        for subfolder in ['data', 'data/dumps', 'data/jsons', 'sources']:
+        for subfolder in ['data', 'data/dumps', 'data/jsons']:
             (self._get_user_folder() / subfolder).mkdir(parents=True, exist_ok=True)
-
-    def _download_csv_if_needed(self):
-        csv_url = "https://raw.githubusercontent.com/danruggi/ispider/refs/heads/main/static/exclude_domains.csv"
-        csv_path = self._get_user_folder() / "sources" / "exclude_domains.csv"
-        if not csv_path.exists():
-            try:
-                response = requests.get(csv_url, timeout=10)
-                response.raise_for_status()
-                csv_path.write_bytes(response.content)
-                self.logger.info(f"Downloaded {csv_path}")
-            except requests.RequestException as e:
-                self.logger.error(f"Failed to download CSV: {e}")
 
     def _ensure_manager(self):
         if self.manager is None:

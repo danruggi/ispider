@@ -90,6 +90,10 @@ INCLUDED_EXPRESSIONS_URL = [
     # r'/\d{4}/\d{2}/\d{2}/',
 ]
 
+# Exclude specific domains from crawling/spidering.
+# Accepts values like "example.com" or full URLs such as "https://www.example.com/path".
+EXCLUDED_DOMAINS = []
+
 RESUME = False
 
 # SEO modular checks
