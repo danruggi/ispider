@@ -50,7 +50,7 @@ class QueueOut:
                 url = domains.add_https_protocol(dom_tld)
 
                 if dom in self.exclusion_list or dom_tld in self.exclusion_list:
-                    self.logger.warning(f'{url} excluded for domain exclusion')
+                    self.logger.debug(f'{url} excluded for domain exclusion')
                     continue
 
                 # Check if domain already exists (considering redirects)

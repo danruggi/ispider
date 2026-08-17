@@ -65,6 +65,23 @@ def call_and_manage_resps(
             logger.warning(f"{dom_tld} not in fetch controller")
             continue
 
+        # Transport and retryable HTTP failures must reach retry handling before
+        # sitemap-specific response validation (which expects final_url_raw).
+        if http_retries.should_retry(resp, conf, logger, qout, mod):
+            ifiles.write_negative_json(resp, conf, mod)
+            continue
+
+        # Once retries are exhausted, a failed sitemap is a normal negative
+        # crawl result. It is not malformed XML and should not emit FILTER102.
+        if http_filters.is_failed_sitemap_response(resp):
+            logger.debug(
+                f"Sitemap fetch failed after {retries} retries: "
+                f"[{status_code}] [{dom_tld}] {url} [{error_message}]"
+            )
+            dom_stats.reduce_missing(dom_tld)
+            ifiles.write_negative_json(resp, conf, mod)
+            continue
+
         try:
             http_filters.filter_on_resp(resp)
         except Exception as e:
@@ -82,14 +99,6 @@ def call_and_manage_resps(
             dom_stats.reduce_missing(dom_tld)
             continue
 
-
-        # **********************
-        # ERROR CORRECTION / RETRIES
-        if http_retries.should_retry(resp, conf, logger, qout, mod):
-            # logger.debug(f"[RETRY] [{status_code}] -- D:{depth} -- R: {retries} -- E:{current_engine} -- [{dom_tld}] {url}")
-            ifiles.write_negative_json(resp, conf, mod)
-            continue
-        
         logger.debug(f"[{mod}] [{status_code}] -- D:{depth} -- R: {retries} -- E:{current_engine} -- [{dom_tld}] {url}")
 
         resp['seo_issues'] = seo_runner.run(resp)
@@ -176,7 +185,7 @@ def unified(mod, conf, exclusion_list, seen_filter,
             
             if dom_tld in exclusion_list:
                 dom_stats.reduce_missing(dom_tld)
-                logger.warning(f"{dom_tld} excluded {url}")
+                logger.debug(f"{dom_tld} excluded {url}")
                 continue
 
             urls.append(reqA)

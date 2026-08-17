@@ -55,6 +55,15 @@ class SeoRunner:
         if not self.conf.get("SEO_CHECKS_ENABLED", True):
             return []
 
+        # Crawl-control documents are inputs to discovery, not indexable HTML
+        # pages. Running HTML checks on them creates false issues and causes
+        # BeautifulSoup XMLParsedAsHTMLWarning noise.
+        if resp.get("request_discriminator") in {"robots", "sitemap"}:
+            return []
+        content_type = str(resp.get("content_type") or "").lower()
+        if "xml" in content_type:
+            return []
+
         issues = []
         for check in self._checks:
             try:

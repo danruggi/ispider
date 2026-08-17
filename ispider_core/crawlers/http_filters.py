@@ -9,17 +9,21 @@ def filter_on_resp(c):
         raise Exception("Missing request request_discriminator or status_code")
 
     ## Sitemap crawling mapped errors
-    if c['request_discriminator'] == 'sitemap':
+    if c['request_discriminator'] == 'sitemap' and c['status_code'] == 200:
         if 'final_url_raw' not in c:
             raise Exception(f"FILTER102: [{c['status_code']}] No final_url in sitemap call")
-        
+
         furl = c['final_url_raw']
-        
+
         url_path = urlparse(furl).path.strip('/')
         if url_path == "" or not re.search(r'[0-9a-zA-Z]', url_path):
             raise Exception("FILTER101: Sitemap redirecting to /")
 
     return True
+
+def is_failed_sitemap_response(resp):
+    """Return True for a sitemap response that cannot be parsed as a sitemap."""
+    return resp.get('request_discriminator') == 'sitemap' and resp.get('status_code') != 200
 
 def filter_file_exists(resp, conf):
     url = resp['url']
