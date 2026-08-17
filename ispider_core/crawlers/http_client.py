@@ -19,7 +19,7 @@ async def handle_httpx(reqsA, conf, mod=0, headers={}):
 
     async with httpx.AsyncClient(timeout=timeout, limits=limits, follow_redirects=True, headers=headers) as client:
         tasks = [
-            mod_httpx.fetch_with_httpx(reqA, client, mod)
+            mod_httpx.fetch_with_httpx(reqA, client, mod, conf)
             for reqA in reqsA
         ]
         return await asyncio.gather(*tasks, return_exceptions=True)

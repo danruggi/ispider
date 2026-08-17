@@ -3,11 +3,12 @@ import ssl
 import warnings
 
 from ispider_core.utils import domains
+from ispider_core.utils import sitemap_cache
 from ispider_core.parsers import filetype_parser
 
 from datetime import datetime
 
-async def fetch_with_httpx(reqA, client, mod):
+async def fetch_with_httpx(reqA, client, mod, conf):
     metadata = {}
 
     # UNPACKING the request
@@ -34,8 +35,12 @@ async def fetch_with_httpx(reqA, client, mod):
     # metadata['dom_tld'] = dom+"."+tld
     # metadata['dom_tld'] = dom_tld
 
+    conditional_headers = {}
+    if request_discriminator == 'sitemap':
+        conditional_headers = sitemap_cache.get_conditional_headers(url, dom_tld, conf)
+
     try:
-        response = await client.get(url=url)
+        response = await client.get(url=url, headers=conditional_headers)
         # Response
         metadata['status_code'] = response.status_code
         metadata['encoding'] = response.encoding
@@ -71,6 +76,16 @@ async def fetch_with_httpx(reqA, client, mod):
             metadata['was_redirected'] = False
 
         metadata['content'] = response.content
+
+        if metadata['status_code'] == 304:
+            cached_body = sitemap_cache.read_cached_body(url, dom_tld, conf)
+            if cached_body is None:
+                # Nothing to fall back on - force this to be treated as a
+                # failure so the retry logic re-fetches without conditional headers.
+                raise Exception("304 Not Modified but no cached sitemap body available")
+            metadata['content'] = cached_body
+            metadata['status_code'] = 200
+            metadata['not_modified'] = True
 
         if filetype_parser.exclude_file_types_from_data(metadata['content']):
             raise Exception("Unsupported file type")
@@ -140,6 +155,14 @@ async def fetch_with_httpx(reqA, client, mod):
         # Cookies
         metadata['has_cookies'] = bool(response.cookies)
         metadata['cookie_names'] = ";".join(list(response.cookies.keys()))
+
+        if request_discriminator == 'sitemap' and not metadata.get('not_modified'):
+            sitemap_cache.store(
+                url, dom_tld, conf,
+                metadata['content'],
+                response.headers.get('etag'),
+                response.headers.get('last-modified'),
+            )
 
 
         # CONNECTION

@@ -44,6 +44,12 @@ MAX_CRAWL_DUMP_SIZE = 52428800
 # Maximum depth to follow in sitemaps
 SITEMAPS_MAX_DEPTH = 2
 
+# Optional: cache sitemap ETag/Last-Modified across runs and use conditional
+# GET (If-None-Match / If-Modified-Since) to skip re-downloading unchanged
+# sitemaps. Reuses the previously dumped body on a 304 response. Off by
+# default; requires a persistent USER_FOLDER/path_dumps across runs to help.
+SITEMAP_CACHE_ENABLED = False
+
 # Methods used during crawl phase
 CRAWL_METHODS = ['robots', 'sitemaps']
 
