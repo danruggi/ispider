@@ -47,8 +47,14 @@ SITEMAPS_MAX_DEPTH = 2
 # Optional: cache sitemap ETag/Last-Modified across runs and use conditional
 # GET (If-None-Match / If-Modified-Since) to skip re-downloading unchanged
 # sitemaps. Reuses the previously dumped body on a 304 response. Off by
-# default; requires a persistent USER_FOLDER/path_dumps across runs to help.
+# default; requires the cache directory below to persist across runs to help.
 SITEMAP_CACHE_ENABLED = False
+
+# Base directory for the sitemap cache. Defaults to None, which stores the
+# cache under path_dumps (inside USER_FOLDER). Set this to a fixed, stable
+# path when USER_FOLDER is regenerated per run (e.g. randomized per test),
+# so the cache survives across runs even though dumps/jsons don't.
+SITEMAP_CACHE_DIR = None
 
 # Methods used during crawl phase
 CRAWL_METHODS = ['robots', 'sitemaps']

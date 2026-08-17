@@ -5,9 +5,14 @@ import os
 """
 Optional cross-run cache for sitemap responses, enabled via
 conf['SITEMAP_CACHE_ENABLED']. Stores each sitemap's ETag/Last-Modified
-plus a copy of its body under path_dumps/<dom_tld>/.sitemap_cache/, keyed
-by a hash of the requested URL (independent of the on-disk dump naming,
-which can shift if a sitemap URL redirects).
+plus a copy of its body under <base>/<dom_tld>/.sitemap_cache/, keyed by a
+hash of the requested URL (independent of the on-disk dump naming, which
+can shift if a sitemap URL redirects).
+
+<base> is conf['SITEMAP_CACHE_DIR'] if set, otherwise conf['path_dumps'].
+Callers whose path_dumps is regenerated every run (e.g. a randomized
+USER_FOLDER per test run) should set SITEMAP_CACHE_DIR to a fixed,
+persistent directory - otherwise the cache never survives to the next run.
 
 On the next run, a cached validator is only used if the cached body file
 is still present - otherwise a full GET is forced, since a 304 with
@@ -18,8 +23,12 @@ CACHE_DIRNAME = ".sitemap_cache"
 INDEX_FILENAME = "index.json"
 
 
+def _cache_base(conf):
+    return conf.get('SITEMAP_CACHE_DIR') or conf['path_dumps']
+
+
 def _cache_dir(dom_tld, conf):
-    return os.path.join(conf['path_dumps'], dom_tld, CACHE_DIRNAME)
+    return os.path.join(_cache_base(conf), dom_tld, CACHE_DIRNAME)
 
 
 def _index_path(dom_tld, conf):
