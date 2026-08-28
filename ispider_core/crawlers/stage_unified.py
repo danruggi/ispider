@@ -95,7 +95,9 @@ def call_and_manage_resps(
             http_filters.filter_file_exists(resp, conf)
         except Exception as e:
             logger.debug(e)
-            ifiles.write_negative_json(resp, conf, mod)
+            # Removed. Don't write nothing on jsons for duplicated files. Let's test this.. 
+            # Makes sense, should not affect logic
+            # ifiles.write_negative_json(resp, conf, mod)
             dom_stats.reduce_missing(dom_tld)
             continue
 
