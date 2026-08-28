@@ -54,7 +54,21 @@ if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
   exit 1
 fi
 
-sed -i "s/^version = \"${CURRENT_VERSION}\"/version = \"${NEXT_VERSION}\"/" pyproject.toml
+python3 - "$CURRENT_VERSION" "$NEXT_VERSION" <<'PY'
+from pathlib import Path
+import sys
+
+current_version, next_version = sys.argv[1:]
+path = Path("pyproject.toml")
+contents = path.read_text()
+current = f'version = "{current_version}"'
+updated = f'version = "{next_version}"'
+
+if contents.count(current) != 1:
+    raise SystemExit(f"Expected exactly one {current!r} in {path}")
+
+path.write_text(contents.replace(current, updated))
+PY
 
 git add pyproject.toml
 git commit -m "Release ${NEXT_VERSION}"
