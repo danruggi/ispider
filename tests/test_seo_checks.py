@@ -63,6 +63,35 @@ def test_schema_news_article_missing_required_fields():
     assert issues and issues[0].code == "SCHEMA_REQUIRED_FIELDS_MISSING"
 
 
+def test_schema_news_article_preserves_html_entities_while_parsing_json():
+    html = """<script type="application/ld+json">{
+        "@type": "NewsArticle",
+        "headline": "El primer &quot;mueble&quot; de la serie",
+        "datePublished": "2026-08-29",
+        "dateModified": "2026-08-29",
+        "author": {"@type": "Person", "name": "Author"},
+        "image": "https://example.com/image.jpg",
+        "publisher": {"@type": "Organization", "name": "Publisher"}
+    }</script>"""
+
+    assert SchemaNewsArticleCheck().run(_resp(html=html)) == []
+
+
+def test_schema_news_article_accepts_fully_html_escaped_json():
+    escaped_json = (
+        "{&quot;@type&quot;:&quot;NewsArticle&quot;,"
+        "&quot;headline&quot;:&quot;Headline&quot;,"
+        "&quot;datePublished&quot;:&quot;2026-08-29&quot;,"
+        "&quot;dateModified&quot;:&quot;2026-08-29&quot;,"
+        "&quot;author&quot;:&quot;Author&quot;,"
+        "&quot;image&quot;:&quot;image.jpg&quot;,"
+        "&quot;publisher&quot;:&quot;Publisher&quot;}"
+    )
+    html = f'<script type="application/ld+json">{escaped_json}</script>'
+
+    assert SchemaNewsArticleCheck().run(_resp(html=html)) == []
+
+
 def test_image_optimization_flags_modern_issues():
     html = '<img src="/hero.jpg" /><img src="/a.jpg" alt="inline" />'
     issues = ImageOptimizationCheck().run(_resp(html=html))

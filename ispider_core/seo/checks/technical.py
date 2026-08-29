@@ -117,11 +117,10 @@ class SchemaNewsArticleCheck:
             if not raw:
                 continue
 
-            # Try normal parse first, but don't lose the raw string if it fails.
-            try:
-                payloads.append(json.loads(html.unescape(raw)))
-            except Exception:
-                payloads.append(raw)
+            # JSON-LD string values may legitimately contain HTML entities such
+            # as &quot;. Unescaping before parsing would turn those entities into
+            # unescaped JSON delimiters and corrupt an otherwise valid payload.
+            payloads.append(self._coerce_jsonld(raw) or raw)
 
         news_obj = self._find_news_article(payloads)
         if not news_obj:
@@ -150,26 +149,31 @@ class SchemaNewsArticleCheck:
             obj = obj.decode("utf-8", "ignore")
 
         if isinstance(obj, str):
-            s = html.unescape(obj).strip()
+            s = obj.strip()
             if not s:
                 return None
 
-            dec = json.JSONDecoder()
-            out = []
-            i = 0
-            while i < len(s):
-                try:
-                    val, j = dec.raw_decode(s, i)
-                    out.append(val)
-                    i = j
-                    while i < len(s) and s[i] in " \t\r\n,":
-                        i += 1
-                except json.JSONDecodeError:
-                    break
+            # Prefer the source text exactly as supplied. The unescaped variant
+            # is only a fallback for pages that entity-escape the entire JSON
+            # document (for example, {&quot;@type&quot;: ...}).
+            candidates = (s, html.unescape(s))
+            for candidate in candidates:
+                dec = json.JSONDecoder()
+                out = []
+                i = 0
+                while i < len(candidate):
+                    try:
+                        val, j = dec.raw_decode(candidate, i)
+                        out.append(val)
+                        i = j
+                        while i < len(candidate) and candidate[i] in " \t\r\n,":
+                            i += 1
+                    except json.JSONDecodeError:
+                        break
 
-            if not out:
-                return None
-            return out[0] if len(out) == 1 else out
+                if out:
+                    return out[0] if len(out) == 1 else out
+            return None
 
         return None
 
